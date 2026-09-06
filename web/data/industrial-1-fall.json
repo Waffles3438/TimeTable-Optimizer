@@ -3559,7 +3559,7 @@
         }
       ]
     },
-    "created": "2026-09-06@00:41:33.038",
+    "created": "2026-09-06@00:41:36.626",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -3585,9 +3585,9 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
+    "primaryWaitlistable": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
+    "primaryFull": false
   },
   {
     "id": "6a1dd76a6138070531c39c09",
@@ -7463,7 +7463,7 @@
         }
       ]
     },
-    "created": "2026-09-06@00:41:33.040",
+    "created": "2026-09-06@00:41:36.627",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -7489,9 +7489,9 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
+    "primaryWaitlistable": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
+    "primaryFull": false
   },
   {
     "id": "6a1dd76a6138070531c39c08",
@@ -11206,7 +11206,7 @@
         }
       ]
     },
-    "created": "2026-09-06@00:41:33.041",
+    "created": "2026-09-06@00:41:36.628",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -11232,9 +11232,9 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
+    "primaryWaitlistable": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
+    "primaryFull": false
   },
   {
     "id": "6a1dde896138070531c39c6f",
@@ -14396,7 +14396,7 @@
         }
       ]
     },
-    "created": "2026-09-06@00:41:33.042",
+    "created": "2026-09-06@00:41:36.629",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -14422,9 +14422,9 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
+    "primaryWaitlistable": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
+    "primaryFull": false
   },
   {
     "id": "6a1df38f6138070531c39d39",
@@ -17722,7 +17722,7 @@
         }
       ]
     },
-    "created": "2026-09-06@00:41:33.044",
+    "created": "2026-09-06@00:41:36.632",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -17784,9 +17784,9 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
+    "primaryWaitlistable": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
+    "primaryFull": false
   },
   {
     "id": "6a1df38f6138070531c39d3c",
@@ -23091,7 +23091,7 @@
         }
       ]
     },
-    "created": "2026-09-06@00:41:33.045",
+    "created": "2026-09-06@00:41:36.633",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -23153,8 +23153,8 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
+    "primaryWaitlistable": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
+    "primaryFull": false
   }
 ]
