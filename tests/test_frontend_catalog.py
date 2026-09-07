@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "web" / "index.html"
 MANIFEST = ROOT / "web" / "data" / "manifest.json"
+DATA_DIR = MANIFEST.parent
 REQUESTED_PROGRAMS = {
     "computer",
     "mechanical",
@@ -16,6 +17,17 @@ REQUESTED_PROGRAMS = {
     "civil",
     "mineral",
     "trackone",
+    "electrical",
+}
+SECOND_YEAR_PROGRAMS = {
+    "computer",
+    "electrical",
+    "mechanical",
+    "industrial",
+    "chemical",
+    "materials",
+    "civil",
+    "mineral",
 }
 
 
@@ -42,6 +54,24 @@ class FrontendCatalogTests(unittest.TestCase):
             for semester in ("fall", "winter"):
                 with self.subTest(program=program, semester=semester):
                     self.assertIn((program, "1", semester), combos)
+
+    def test_manifest_has_both_second_year_semesters_for_each_supported_program(self):
+        combos = {
+            (item["program"], item["year"], item["session"])
+            for item in self.manifest["combos"]
+        }
+        for program in SECOND_YEAR_PROGRAMS:
+            for semester in ("fall", "winter"):
+                with self.subTest(program=program, semester=semester):
+                    key = (program, "2", semester)
+                    self.assertIn(key, combos)
+                    self.assertTrue(
+                        (DATA_DIR / f"{program}-2-{semester}.json").exists(),
+                        f"manifest entry must have a cache file: {key}",
+                    )
+
+        for semester in ("fall", "winter"):
+            self.assertNotIn(("trackone", "2", semester), combos)
 
     def test_loader_uses_program_year_semester_cache_key(self):
         self.assertIn('return `data/${t}-${y}-${s}.json`;', self.html)
