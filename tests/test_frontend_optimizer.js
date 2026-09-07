@@ -2554,6 +2554,12 @@ const TASK35_FIRST_YEAR_FILES = [
 const TASK35_SECOND_YEAR_FILES = [
   "computer-2-fall.json", "computer-2-winter.json",
   "electrical-2-fall.json", "electrical-2-winter.json",
+  "mechanical-2-fall.json", "mechanical-2-winter.json",
+  "industrial-2-fall.json", "industrial-2-winter.json",
+  "chemical-2-fall.json", "chemical-2-winter.json",
+  "materials-2-fall.json", "materials-2-winter.json",
+  "civil-2-fall.json", "civil-2-winter.json",
+  "mineral-2-fall.json", "mineral-2-winter.json",
 ];
 
 function task35ReferenceSearch(plans, opts) {
@@ -2955,26 +2961,41 @@ test("task 3.5 integration: all 16 first-year datasets use complete shared searc
 });
 
 
-test("task 3.5 integration: second-year Computer and Electrical datasets retain distinct tracks", () => {
+test("task 3.5 integration: all supported second-year datasets use complete shared searches", () => {
   const optimizer = sharedOptimizerIfPresent();
   assert.ok(optimizer, "shared optimizer module must be available");
 
   for (const fileName of TASK35_SECOND_YEAR_FILES) {
     const raw = task35GetRaw(fileName);
-    const codes = new Set(raw.map(course => course.code));
-    if (fileName.startsWith("computer-2-")) {
-      assert.equal(codes.has("ECE295H1"), false, `${fileName}: Electrical track leaked in`);
+    assert.ok(raw.length > 0, `${fileName}: cache must contain courses`);
+    const isComputer = fileName.startsWith("computer-2-");
+    const isElectrical = fileName.startsWith("electrical-2-");
+    if (isComputer) {
+      assert.equal(raw.some(course => course.code === "ECE295H1"), false,
+        `${fileName}: Electrical track leaked in`);
       if (fileName.includes("-winter")) {
-        assert.equal(codes.has("ECE297H1"), true, `${fileName}: Computer track changed`);
+        assert.equal(raw.some(course => course.code === "ECE297H1"), true,
+          `${fileName}: Computer track changed`);
       }
-    } else {
-      assert.equal(codes.has("ECE297H1"), false, `${fileName}: Computer track leaked in`);
+    } else if (isElectrical) {
+      assert.equal(raw.some(course => course.code === "ECE297H1"), false,
+        `${fileName}: Computer track leaked in`);
       if (fileName.includes("-winter")) {
-        assert.equal(codes.has("ECE295H1"), true, `${fileName}: Electrical track changed`);
+        assert.equal(raw.some(course => course.code === "ECE295H1"), true,
+          `${fileName}: Electrical track changed`);
       }
     }
+
+    // task35RunDataset performs the generic checks for every major: all raw
+    // courses must build, the exact search must complete, and any returned
+    // plan must preserve active components, locks, objective identity, and
+    // clash-freedom.  Civil/Mineral Fall may legitimately be complete
+    // NO_SOLUTION because their current API data has no usable required
+    // meeting-time candidates.
     task35RunDataset(fileName, optimizer, false);
   }
+  assert.equal(TASK35_SECOND_YEAR_FILES.length, 16);
+  assert.equal(new Set(TASK35_SECOND_YEAR_FILES).size, 16);
 });
 
 

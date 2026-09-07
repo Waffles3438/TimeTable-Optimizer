@@ -161,6 +161,12 @@ BOTH_SESSIONS = ["fall", "winter"]
 # Year -> course-level code used by the ttb API (year 1 = 100/A, year 2 = 200/B).
 YEAR_LEVEL = {"1": ["100/A"], "2": ["200/B"], "3": ["300/C"], "4": ["400/D"]}
 
+# Some Engineering curricula include courses taught outside the APSC division
+# (for example ESS courses in Mineral Engineering). Keep the normal request
+# narrow, then add this fallback division only when an exact curriculum code is
+# missing from the first response.
+CURRICULUM_FALLBACK_DIVISIONS = ("ARTSC",)
+
 
 def cached_filename(args):
     """Stable cache filename: <program>-<year>-<semester>.json
@@ -280,12 +286,36 @@ def scrape_session(args, session):
     raw = fetch_courses(sessions, args.divisions, levels)
     print(f"  raw API entries: {len(raw)}")
 
+    if curriculum_codes:
+        available_codes = {str(course.get("code", "")).upper() for course in raw}
+        missing_codes = curriculum_codes - available_codes
+        if missing_codes:
+            fallback_divisions = list(dict.fromkeys(
+                [*args.divisions, *CURRICULUM_FALLBACK_DIVISIONS]
+            ))
+            if fallback_divisions != list(args.divisions):
+                print(
+                    "  missing curriculum codes; retrying with divisions "
+                    f"{fallback_divisions}: {', '.join(sorted(missing_codes))}"
+                )
+                raw = fetch_courses(sessions, fallback_divisions, levels)
+                print(f"  fallback API entries: {len(raw)}")
+
     courses = filter_by_prefix(raw, prefixes) if prefixes else raw
     if prefixes:
         print(f"  after prefix filter {prefixes}: {len(courses)} entries")
     if curriculum_codes:
         courses = filter_by_codes(courses, curriculum_codes)
         print(f"  after curriculum filter: {len(courses)} entries")
+        returned_codes = {str(course.get("code", "")).upper() for course in courses}
+        missing_codes = curriculum_codes - returned_codes
+        if missing_codes:
+            print(
+                "Curriculum courses were not returned by the timetable API: "
+                f"{', '.join(sorted(missing_codes))}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
     if args.codes:
         courses = filter_by_codes(courses, args.codes)
         print(f"  after codes filter {args.codes}: {len(courses)} entries")
