@@ -1,1031 +1,1652 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Timetable Generator</title>
-<style>
-  :root { --bg:#f5f6f8; --card:#fff; --accent:#0d6efd; --line:#e2e5ea; }
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-         margin:0; background:var(--bg); color:#222; }
-  header { background:var(--accent); color:#fff; padding:16px 20px; }
-  header h1 { margin:0; font-size:1.25rem; }
-  main { max-width:1400px; margin:0 auto; padding:24px 28px; display:grid;
-         grid-template-columns: 300px 1fr; gap:24px; align-items:start; }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:10px;
-           padding:16px; }
-  h2 { font-size:1rem; margin-top:0; }
-  .course { padding:8px 0; border-bottom:1px solid var(--line); }
-  .course:last-child { border-bottom:none; }
-  .course-head { font-weight:600; margin-bottom:4px; }
-  .course code { font-weight:600; }
-  .course .nm { color:#666; font-size:.8rem; font-weight:400; }
-  .tm-head { font-size:.76rem; font-weight:600; color:#666; margin:6px 0 2px; }
-  .section { display:flex; align-items:center; gap:8px; padding:3px 0 3px 14px;
-             font-size:.88rem; }
-   .section .tm { display:inline-block; min-width:34px; color:#0d6efd;
-                  font-size:.72rem; font-weight:600; }
-   .lec-worth-lbl { padding-left:14px; font-size:.82rem; color:#444; }
-   .tut-classes { padding:2px 0 4px 34px; display:flex; flex-direction:column; gap:2px; }
-   .tut-class { font-size:.8rem; color:#555; padding:1px 0; display:flex; align-items:center; gap:6px; }
-   .tut-class .tc-day { min-width:30px; font-weight:400; }
-   .tut-class .tc-time { font-variant-numeric:tabular-nums; }
-  button { background:var(--accent); color:#fff; border:none; border-radius:8px;
-           padding:10px 14px; font-size:.95rem; cursor:pointer; }
-  button:hover { filter:brightness(1.05); }
-  button.ghost { background:#6c757d; }
-  .actions { display:flex; gap:10px; margin-top:12px; }
-  .opt { margin-top:14px; padding:12px 14px; background:#f6f8fa;
-         border:1px solid var(--line); border-radius:8px; }
-  .opt[hidden] { display:none; }
-  .opt-title { font-weight:600; font-size:.82rem; color:#444; margin-bottom:6px; }
-   .opt label { display:flex; align-items:center; gap:6px; font-size:.84rem;
-                 padding:2px 0; cursor:pointer; }
-   .opt-sub { padding:2px 0 2px 22px; }
-   .opt-sub[hidden] { display:none; }
-  .opt button { background:var(--accent); color:#fff; border:none;
-                border-radius:8px; padding:7px 14px; font-weight:600;
-                cursor:pointer; margin-top:8px; }
-  .opt button:hover { filter:brightness(1.05); }
-  .controls { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px;
-              margin-bottom:12px; padding:10px 12px; background:#f6f8fa;
-              border:1px solid var(--line); border-radius:8px; }
-  .controls label { display:flex; flex-direction:column; font-size:.78rem;
-                     font-weight:600; color:#555; gap:2px; }
-  .controls select { padding:4px 6px; border:1px solid var(--line);
-                     border-radius:6px; font-size:.85rem; }
-  .controls button { background:var(--accent); color:#fff; border:none;
-                      border-radius:8px; padding:7px 14px; font-weight:600;
-                      cursor:pointer; }
-  .controls button:hover { filter:brightness(1.05); }
-  table { border-collapse:collapse; width:100%; font-size:.9rem; }
-  th, td { border:1px solid var(--line); padding:7px 10px; text-align:left; }
-  th { background:#eef1f5; }
-  .daycol { font-weight:600; background:#eef1f5; white-space:nowrap; }
-  .status { margin-top:12px; font-size:.95rem; color:#444; }
-  .legend { font-size:.8rem; color:#666; margin-top:10px; }
-  table.grid thead th { text-align:center; font-size:1rem; padding:10px; }
-  table.grid td.hour { background:#eef1f5; font-weight:600;
-                      text-align:right; vertical-align:top;
-                      white-space:nowrap; color:#555;
-                      height:54px; box-sizing:border-box; padding:5px 8px; font-size:.82rem; }
-  table.grid td { height:54px; box-sizing:border-box; }
-  table.grid td.empty { height:22px; }
-  table.grid td.evt { color:#fff; vertical-align:top; position:relative;
-                      padding:8px 9px; font-size:.85rem; line-height:1.25; }
-  table.grid td.evt .evt-top { font-weight:600; margin-bottom:2px; }
-  table.grid td.evt .evt-sec { font-weight:500; font-size:.78rem; opacity:.92; }
-  table.grid td.evt code { font-weight:700; font-size:.92rem; }
-  /* multi-hour block: head drops bottom border; middle continuation cells drop
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Timetable Generator</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #fff;
+      --accent: #0d6efd;
+      --line: #e2e5ea;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: #222;
+    }
+
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 16px 20px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 28px;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    h2 {
+      font-size: 1rem;
+      margin-top: 0;
+    }
+
+    .course {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .course:last-child {
+      border-bottom: none;
+    }
+
+    .course-head {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .course code {
+      font-weight: 600;
+    }
+
+    .course .nm {
+      color: #666;
+      font-size: .8rem;
+      font-weight: 400;
+    }
+
+    .tm-head {
+      font-size: .76rem;
+      font-weight: 600;
+      color: #666;
+      margin: 6px 0 2px;
+    }
+
+    .section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0 3px 14px;
+      font-size: .88rem;
+    }
+
+    .section .tm {
+      display: inline-block;
+      min-width: 34px;
+      color: #0d6efd;
+      font-size: .72rem;
+      font-weight: 600;
+    }
+
+    .lec-worth-lbl {
+      padding-left: 14px;
+      font-size: .82rem;
+      color: #444;
+    }
+
+    .tut-classes {
+      padding: 2px 0 4px 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .tut-class {
+      font-size: .8rem;
+      color: #555;
+      padding: 1px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tut-class .tc-day {
+      min-width: 30px;
+      font-weight: 400;
+    }
+
+    .tut-class .tc-time {
+      font-variant-numeric: tabular-nums;
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: .95rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(1.05);
+    }
+
+    button.ghost {
+      background: #6c757d;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .opt {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #f6f8fa;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .opt[hidden] {
+      display: none;
+    }
+
+    .opt-title {
+      font-weight: 600;
+      font-size: .82rem;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
+    .opt label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .84rem;
+      padding: 2px 0;
+      cursor: pointer;
+    }
+
+    .opt-sub {
+      padding: 2px 0 2px 22px;
+    }
+
+    .opt-sub[hidden] {
+      display: none;
+    }
+
+    .opt button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .opt button:hover {
+      filter: brightness(1.05);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #f6f8fa;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .controls label {
+      display: flex;
+      flex-direction: column;
+      font-size: .78rem;
+      font-weight: 600;
+      color: #555;
+      gap: 2px;
+    }
+
+    .controls select {
+      padding: 4px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: .85rem;
+    }
+
+    .controls button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .controls button:hover {
+      filter: brightness(1.05);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: .9rem;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 7px 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #eef1f5;
+    }
+
+    .daycol {
+      font-weight: 600;
+      background: #eef1f5;
+      white-space: nowrap;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: .95rem;
+      color: #444;
+    }
+
+    .legend {
+      font-size: .8rem;
+      color: #666;
+      margin-top: 10px;
+    }
+
+    table.grid thead th {
+      text-align: center;
+      font-size: 1rem;
+      padding: 10px;
+    }
+
+    table.grid td.hour {
+      background: #eef1f5;
+      font-weight: 600;
+      text-align: right;
+      vertical-align: top;
+      white-space: nowrap;
+      color: #555;
+      height: 54px;
+      box-sizing: border-box;
+      padding: 5px 8px;
+      font-size: .82rem;
+    }
+
+    table.grid td {
+      height: 54px;
+      box-sizing: border-box;
+    }
+
+    table.grid td.empty {
+      height: 22px;
+    }
+
+    table.grid td.evt {
+      color: #fff;
+      vertical-align: top;
+      position: relative;
+      padding: 8px 9px;
+      font-size: .85rem;
+      line-height: 1.25;
+    }
+
+    table.grid td.evt .evt-top {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    table.grid td.evt .evt-sec {
+      font-weight: 500;
+      font-size: .78rem;
+      opacity: .92;
+    }
+
+    table.grid td.evt code {
+      font-weight: 700;
+      font-size: .92rem;
+    }
+
+    /* multi-hour block: head drops bottom border; middle continuation cells drop
      BOTH borders so the block is seamless; only the final cell keeps its bottom
      border to close the block. This makes a 3-hour class one continuous block. */
-  table.grid td.evt.head, table.grid div.evt.head { border-bottom:none; }
-  table.grid td.evt.cont, table.grid div.evt.cont { border-top:none; border-bottom:none; }
-  table.grid td.evt.cont.last, table.grid div.evt.cont.last { border-bottom:1px solid var(--line); }
-  table.grid td.evt code { color:#fff; font-weight:700; }
-  table.grid td { height:26px; }
-  /* overlapping classes shown side by side within one hour cell */
-  table.grid td.evt.split-parent { padding:0; }
-  table.grid .evt-split { display:flex; height:100%; }
-  table.grid .evt-split .split-cell { flex:1 1 0; min-width:0; border-right:1px solid rgba(255,255,255,.6); }
-  table.grid .evt-split .split-cell:last-child { border-right:none; }
-</style>
+    table.grid td.evt.head,
+    table.grid div.evt.head {
+      border-bottom: none;
+    }
+
+    table.grid td.evt.cont,
+    table.grid div.evt.cont {
+      border-top: none;
+      border-bottom: none;
+    }
+
+    table.grid td.evt.cont.last,
+    table.grid div.evt.cont.last {
+      border-bottom: 1px solid var(--line);
+    }
+
+    table.grid td.evt code {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    table.grid td {
+      height: 26px;
+    }
+
+    /* overlapping classes shown side by side within one hour cell */
+    table.grid td.evt.split-parent {
+      padding: 0;
+    }
+
+    table.grid .evt-split {
+      display: flex;
+      height: 100%;
+    }
+
+    table.grid .evt-split .split-cell {
+      flex: 1 1 0;
+      min-width: 0;
+      border-right: 1px solid rgba(255, 255, 255, .6);
+    }
+
+    table.grid .evt-split .split-cell:last-child {
+      border-right: none;
+    }
+  </style>
 </head>
+
 <body>
-<header><h1>Timetable Fixer</h1></header>
-<main>
-  <section class="panel">
-    <h2>Courses</h2>
-    <div class="controls">
-      <label>Program
-        <select id="selTrack">
-          <option value="computer" selected>Computer</option>
-          <option value="electrical">Electrical</option>
-        </select>
-      </label>
-      <label>Year
-        <select id="selYear">
-          <option value="1">1st</option>
-          <option value="2" selected>2nd</option>
-          <option value="3">3rd</option>
-          <option value="4">4th</option>
-        </select>
-      </label>
-      <label>Semester
-        <select id="selSession">
-          <option value="fall" selected>Fall 2026</option>
-          <option value="winter">Winter 2027</option>
-        </select>
-      </label>
-      <button id="loadData">Load</button>
-      <span id="cacheInfo" class="legend"></span>
-    </div>
-    <div id="courseList"><em>Loading courses…</em></div>
-    <div class="opt" id="optPanel" hidden>
-      <div class="opt-title">Optimize for:</div>
-      <label><input type="checkbox" id="optCampus"> Minimize free time on campus</label>
-      <div class="opt-sub" id="lunchWrap" hidden>
-        <label><input type="checkbox" id="optLunch"> Provide time for lunch</label>
+  <header>
+    <h1>Timetable Fixer</h1>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>Courses</h2>
+      <div class="controls">
+        <label>Program
+          <select id="selTrack">
+            <!-- `computer` is the existing ECE/Computer cache ID; keep it so
+               current second-year ECE behavior and links remain compatible. -->
+            <option value="computer" selected>Computer</option>
+            <option value="mechanical">Mechanical</option>
+            <option value="industrial">Industrial</option>
+            <option value="chemical">Chemical</option>
+            <option value="materials">Material Science</option>
+            <option value="civil">Civil</option>
+            <option value="mineral">Mineral</option>
+            <option value="trackone">Track One</option>
+            <!-- Existing second-year ECE Electrical track. First-year data is
+               intentionally the same common curriculum as ECE. -->
+            <option value="electrical">Electrical</option>
+          </select>
+        </label>
+        <label>Year
+          <select id="selYear">
+            <option value="1">1st</option>
+            <option value="2" selected>2nd</option>
+            <option value="3">3rd</option>
+            <option value="4">4th</option>
+          </select>
+        </label>
+        <label>Semester
+          <select id="selSession">
+            <option value="fall" selected>Fall 2026</option>
+            <option value="winter">Winter 2027</option>
+          </select>
+        </label>
+        <button id="loadData">Load</button>
+        <span id="cacheInfo" class="legend"></span>
       </div>
-      <label><input type="checkbox" id="optEarly"> End early</label>
-      <label><input type="checkbox" id="optLate"> Start late</label>
-      <button id="optimize">Optimize</button>
-      <div id="optInfo" class="legend"></div>
-    </div>
-    <div class="legend" id="hint" hidden>Check the exact lecture / tutorial / practical
-      sections you must attend. Locked sections stay fixed; the rest is filled
-      in and the timetable is <b>optimized</b> to best fit the preferences above.
-      Change any checkbox or click <b>Optimize</b> to re-search.</div>
-  </section>
+      <div id="courseList"><em>Loading courses…</em></div>
+      <div class="opt" id="optPanel" hidden>
+        <div class="opt-title">Optimize for:</div>
+        <label><input type="checkbox" id="optCampus"> Minimize free time on campus</label>
+        <div class="opt-sub" id="lunchWrap" hidden>
+          <label><input type="checkbox" id="optLunch"> Provide time for lunch</label>
+        </div>
+        <label><input type="checkbox" id="optEarly"> End early</label>
+        <label><input type="checkbox" id="optLate"> Start late</label>
+        <button id="optimize">Optimize</button>
+        <div id="optInfo" class="legend"></div>
+      </div>
+      <div class="legend" id="hint" hidden>Check the exact lecture / tutorial / practical
+        sections you must attend. Locked sections stay fixed; the rest is filled
+        in and the timetable is <b>optimized</b> to best fit the preferences above.
+        Change any checkbox or click <b>Optimize</b> to re-search.</div>
+    </section>
 
-  <section class="panel">
-    <h2>Generated timetable</h2>
-    <div id="status" class="status">Load courses, then press Optimize to build a timetable.</div>
-    <div id="timetable"></div>
-  </section>
-</main>
+    <section class="panel">
+      <h2>Generated timetable</h2>
+      <div id="status" class="status">Load courses, then press Optimize to build a timetable.</div>
+      <div id="timetable"></div>
+    </section>
+  </main>
 
-<script>
-const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  <script src="optimizer.js"></script>
+  <script>
+    const OPTIMIZER = window.TimetableOptimizer;
+    if (!OPTIMIZER) throw new Error("Timetable optimizer module failed to load");
 
-// 12-hour clock, e.g. 9:00 AM, 1:30 PM
-function fmt12(hour, minute){
-  let h = ((hour % 24) + 24) % 24;
-  const ampm = h < 12 ? "AM" : "PM";
-  let h12 = h % 12; if (h12 === 0) h12 = 12;
-  return h12 + ":" + String(minute).padStart(2,"0") + " " + ampm;
-}
-function meetings(sec){
-  const out = [];
-  const seen = new Set();
-  for (const mt of sec.meetingTimes || []){
-    const d = mt.start.day, s = +mt.start.millisofday, e = +mt.end.millisofday;
-    const k = d+"-"+s+"-"+e;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({day:d, start:s, end:e});
-  }
-  return out;
-}
-function overlaps(a, b){
-  return a.day===b.day && a.start < b.end && b.start < a.end;
-}
-function clashFree(blocks, chosen){
-  return !blocks.some(m => chosen.some(c => overlaps(m, c)));
-}
-function shuffle(a){ return a.sort(()=>Math.random()-0.5); }
+    const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-let COURSES = [];
-// tutorial sections the user manually selected are no longer tracked: tutorials
-// are attended by default and the whole TUT component is dropped per-course via
-// the "Not worth attending" checkbox (see uselessTut below).
-// courses whose tutorials (TUT) are marked "not worth attending", keyed by
-// course code. When set, the whole TUT component is left off the timetable.
-const uselessTut = new Set();
-// courses whose practicals (PRA) are marked "not worth attending", keyed by
-// course code. When set, the whole PRA component is left off the timetable.
-const uselessPra = new Set();
-// courses whose lectures are marked "not worth attending", keyed by course
-// code. When set, none of that course's lectures are placed on the timetable.
-const uselessLec = new Set();
-// per-TUT-section attendance for SELECTED multi-meeting tutorial sections,
-// keyed by "courseCode|secName". Value (when present) is a Set of meeting
-// indices the user will attend; absent means "attend all meetings of the
-// selected section". The section is selected via its TUT radio; per-class
-// checkboxes then toggle individual meetings off.
-const tutAttend = new Map();
-// Best plan found across Optimize presses (cumulative): only re-render when a
-// new search beats it. Reset whenever the inputs (locks / options) change.
-let bestSoFar = null;
-let bestSoFarOpts = null;
-let bestSoFarPlans = null;
+    // 12-hour clock, e.g. 9:00 AM, 1:30 PM
+    function fmt12(hour, minute) {
+      let h = ((hour % 24) + 24) % 24;
+      const ampm = h < 12 ? "AM" : "PM";
+      let h12 = h % 12; if (h12 === 0) h12 = 12;
+      return h12 + ":" + String(minute).padStart(2, "0") + " " + ampm;
+    }
 
-// In-memory + localStorage cache of fetched course data, keyed by the
-// (year, session, track) combination so re-selecting is instant.
-const _memCache = new Map();
-function _lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
-function _lsSet(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
-function cacheKey(){
-  const y = document.getElementById("selYear").value;
-  const s = document.getElementById("selSession").value;
-  const t = document.getElementById("selTrack").value;
-  return `data/${t}-${y}-${s}.json`;
-}
-// Reset the optimizer checkboxes, lunch sub-option, result text, the
-// cumulative best plan, and the memo caches. Shared by clearCourses() (fresh
-// startup) and load() (new program/year/semester).
-function resetOptimizerState(){
-  bestSoFar = null; bestSoFarOpts = null; bestSoFarPlans = null;
-  _lecOptCache.clear(); _comboCache.clear();
-  uselessTut.clear(); uselessPra.clear(); uselessLec.clear();
-  for (const id of ["optCampus","optLunch","optEarly","optLate"])
-    if (document.getElementById(id)) document.getElementById(id).checked = false;
-  const lunchWrap = document.getElementById("lunchWrap");
-  if (lunchWrap) lunchWrap.hidden = true;
-  const info = document.getElementById("optInfo");
-  if (info) info.textContent = "";
-}
-// Clear the course list so stale courses from a previous selection don't
-// linger after the dropdowns change but before Load is clicked.
-function clearCourses(){
-  COURSES = [];
-  resetOptimizerState();
-  const list = document.getElementById("courseList");
-  list.innerHTML = "<em>Select Program / Year / Semester above, then click Load.</em>";
-  document.getElementById("timetable").innerHTML = "";
-  // hide the optimizer panel until courses are loaded again
-  const panel = document.getElementById("optPanel");
-  if (panel) panel.hidden = true;
-  const hint = document.getElementById("hint");
-  if (hint) hint.hidden = true;
-}
-async function load(){
-  // A new program/year/semester is being loaded: reset the optimizer state
-  // and any previously-generated result for the fresh selection.
-  resetOptimizerState();
-  const key = cacheKey();
-  // remove the previously-generated timetable for the old selection
-  const timetable = document.getElementById("timetable");
-  if (timetable) timetable.innerHTML = "";
-  let data = _memCache.get(key) || _lsGet("ttb:"+key);
-  const cacheInfo = document.getElementById("cacheInfo");
-  if (data){
-    if (cacheInfo) cacheInfo.textContent = "";
-  } else {
-    try {
-      const res = await fetch(key);
-      data = await res.json();
-      _memCache.set(key, data);
-      _lsSet("ttb:"+key, data);
-      if (cacheInfo) cacheInfo.textContent = "";
-      } catch(e){
-        // fall back to the default bundled dataset
+    let COURSES = [];
+    // tutorial sections the user manually selected are no longer tracked: tutorials
+    // are attended by default and the whole TUT component is dropped per-course via
+    // the "Not worth attending" checkbox (see uselessTut below).
+    // courses whose tutorials (TUT) are marked "not worth attending", keyed by
+    // course code. When set, the whole TUT component is left off the timetable.
+    const uselessTut = new Set();
+    // courses whose practicals (PRA) are marked "not worth attending", keyed by
+    // course code. When set, the whole PRA component is left off the timetable.
+    const uselessPra = new Set();
+    // courses whose lectures are marked "not worth attending", keyed by course
+    // code. When set, none of that course's lectures are placed on the timetable.
+    const uselessLec = new Set();
+    // per-TUT-section attendance for SELECTED multi-meeting tutorial sections,
+    // keyed by "courseCode|secName". Value (when present) is a Set of meeting
+    // indices the user will attend; absent means "attend all meetings of the
+    // selected section". The section is selected via its TUT radio; per-class
+    // checkboxes then toggle individual meetings off.
+    const tutAttend = new Map();
+    // Best plan found across Optimize presses (cumulative). The stored result is
+    // always the complete, optimal, clash-free result for bestSoFarKey.
+    let bestSoFar = null;
+    let bestSoFarResult = null;
+    let bestSoFarKey = null;
+
+    // A search is an explicitly identified request.  The generation changes
+    // whenever a request is canceled or superseded, while requestId remains
+    // monotonically increasing for diagnostics and worker correlation.
+    let activeOptimization = null;
+    let optimizationGeneration = 0;
+    let optimizationRequestId = 0;
+
+    function terminateOptimizationWorker(worker) {
+      if (!worker || typeof worker.terminate !== "function") return;
+      try { worker.terminate(); } catch (e) { /* already terminated */ }
+    }
+
+    function formatSearchedCombinations(value) {
+      const count = Number(value);
+      return Number.isFinite(count) && count >= 0
+        ? String(Math.floor(count))
+        : "0";
+    }
+
+    function searchedCombinationsText(value, suffix = "…") {
+      return `Searched ${formatSearchedCombinations(value)} combinations${suffix}`;
+    }
+
+    function requestSearchedCombinations(request, value) {
+      const next = Number(value);
+      if (!Number.isFinite(next) || next < 0) return request.searchedCombinations || 0;
+      request.searchedCombinations = Math.max(
+        request.searchedCombinations || 0,
+        Math.floor(next),
+      );
+      return request.searchedCombinations;
+    }
+
+    function isActiveOptimizationRequest(request) {
+      return activeOptimization === request &&
+        optimizationGeneration === request.generation;
+    }
+
+    function updateOptimizationProgress(request, value) {
+      if (!isActiveOptimizationRequest(request)) return;
+      const count = requestSearchedCombinations(request, value);
+      const status = document.getElementById("status");
+      if (status) status.textContent = searchedCombinationsText(count);
+    }
+
+    function cancelOptimization() {
+      optimizationGeneration += 1;
+      const active = activeOptimization;
+      activeOptimization = null;
+      if (!active) return;
+      if (active.timer !== undefined && typeof clearTimeout === "function") {
+        try { clearTimeout(active.timer); } catch (e) { /* best effort */ }
+      }
+      terminateOptimizationWorker(active.worker);
+      const status = document.getElementById("status");
+      if (status && active.searchedCombinations !== undefined &&
+        /^Searched \d+ combinations/.test(status.textContent)) {
+        status.textContent = `Optimization canceled. ${searchedCombinationsText(
+          active.searchedCombinations, ".",
+        )} Press Optimize to restart.`;
+      } else if (status && status.textContent === "Optimizing…") {
+        status.textContent = "Optimization canceled. Press Optimize to restart.";
+      }
+    }
+
+    function clearBestSoFar() {
+      cancelOptimization();
+      bestSoFar = null;
+      bestSoFarResult = null;
+      bestSoFarKey = null;
+    }
+
+    // In-memory + localStorage cache of fetched course data, keyed by the
+    // (year, session, track) combination so re-selecting is instant.
+    const _memCache = new Map();
+    function _lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+    function _lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+    function comboKey(program, year, session) {
+      return `${program}|${year}|${session}`;
+    }
+    function cacheKey() {
+      const y = document.getElementById("selYear").value;
+      const s = document.getElementById("selSession").value;
+      const t = document.getElementById("selTrack").value;
+      return `data/${t}-${y}-${s}.json`;
+    }
+
+    // The manifest is only an availability index; course data still loads through
+    // the same static cache path as before. When available, it prevents a user from
+    // selecting a program/year/semester combination that has no published cache.
+    let availableCombos = null;
+    function hasCachedCombo(program, year, session) {
+      return !availableCombos || availableCombos.has(comboKey(program, year, session));
+    }
+    function selectionDescription() {
+      const track = document.getElementById("selTrack");
+      const year = document.getElementById("selYear");
+      const session = document.getElementById("selSession");
+      const trackLabel = track.options[track.selectedIndex]?.textContent || track.value;
+      const yearLabel = year.options[year.selectedIndex]?.textContent || year.value;
+      const sessionLabel = session.options[session.selectedIndex]?.textContent || session.value;
+      return `${trackLabel}, ${yearLabel}, ${sessionLabel}`;
+    }
+    function updateAvailability() {
+      if (!availableCombos) return;
+      const track = document.getElementById("selTrack").value;
+      const year = document.getElementById("selYear");
+      const session = document.getElementById("selSession");
+
+      for (const option of year.options) {
+        const hasAnySemester = ["fall", "winter"].some(s =>
+          hasCachedCombo(track, option.value, s));
+        option.disabled = !hasAnySemester;
+      }
+      if (year.selectedOptions[0]?.disabled) {
+        const firstAvailable = [...year.options].find(option => !option.disabled);
+        if (firstAvailable) year.value = firstAvailable.value;
+      }
+
+      for (const option of session.options)
+        option.disabled = !hasCachedCombo(track, year.value, option.value);
+      if (session.selectedOptions[0]?.disabled) {
+        const firstAvailable = [...session.options].find(option => !option.disabled);
+        if (firstAvailable) session.value = firstAvailable.value;
+      }
+
+      const cacheInfo = document.getElementById("cacheInfo");
+      if (cacheInfo) {
+        cacheInfo.textContent = hasCachedCombo(track, year.value, session.value)
+          ? ""
+          : `No cached timetable data for ${selectionDescription()}.`;
+      }
+    }
+    async function loadManifest() {
+      try {
+        const res = await fetch("data/manifest.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`manifest request failed: ${res.status}`);
+        const manifest = await res.json();
+        const combos = Array.isArray(manifest.combos) ? manifest.combos : [];
+        if (!combos.length) throw new Error("manifest has no cached combinations");
+        availableCombos = new Set(combos.map(combo =>
+          comboKey(combo.program, combo.year, combo.session)));
+        updateAvailability();
+      } catch (e) {
+        // Direct cache loading remains available if the manifest is unavailable.
+        availableCombos = null;
+      }
+    }
+    // Reset the optimizer checkboxes, lunch sub-option, result text, and the
+    // cumulative best plan. Shared by clearCourses() (fresh startup) and load()
+    // (new program/year/semester).
+    function resetOptimizerState() {
+      clearBestSoFar();
+      uselessTut.clear(); uselessPra.clear(); uselessLec.clear();
+      for (const id of ["optCampus", "optLunch", "optEarly", "optLate"])
+        if (document.getElementById(id)) document.getElementById(id).checked = false;
+      const lunchWrap = document.getElementById("lunchWrap");
+      if (lunchWrap) lunchWrap.hidden = true;
+      const info = document.getElementById("optInfo");
+      if (info) info.textContent = "";
+    }
+    // Clear the course list so stale courses from a previous selection don't
+    // linger after the dropdowns change but before Load is clicked.
+    function clearCourses() {
+      COURSES = [];
+      resetOptimizerState();
+      const list = document.getElementById("courseList");
+      list.innerHTML = "<em>Select Program / Year / Semester above, then click Load.</em>";
+      document.getElementById("timetable").innerHTML = "";
+      // hide the optimizer panel until courses are loaded again
+      const panel = document.getElementById("optPanel");
+      if (panel) panel.hidden = true;
+      const hint = document.getElementById("hint");
+      if (hint) hint.hidden = true;
+    }
+    async function load() {
+      // A new program/year/semester is being loaded: reset the optimizer state
+      // and any previously-generated result for the fresh selection.
+      resetOptimizerState();
+      const key = cacheKey();
+      // remove the previously-generated timetable for the old selection
+      const timetable = document.getElementById("timetable");
+      if (timetable) timetable.innerHTML = "";
+      let data = _memCache.get(key) || _lsGet("ttb:" + key);
+      const cacheInfo = document.getElementById("cacheInfo");
+      if (data) {
+        if (cacheInfo) cacheInfo.textContent = "";
+      } else {
         try {
-          const res = await fetch("courses.json");
+          const res = await fetch(key);
+          if (!res.ok) throw new Error(`cache request failed: ${res.status}`);
           data = await res.json();
-        } catch(e2){
+          if (!Array.isArray(data)) throw new Error("cache is not a course array");
+          _memCache.set(key, data);
+          _lsSet("ttb:" + key, data);
+          if (cacheInfo) cacheInfo.textContent = "";
+        } catch (e) {
+          if (cacheInfo)
+            cacheInfo.textContent = `No cached timetable data for ${selectionDescription()}.`;
           document.getElementById("courseList").innerHTML =
-            "<em>Could not load course data. Run the scraper (or scrape_cache.py) first " +
-            "and serve this folder over http (e.g. <code>python -m http.server</code>).</em>";
+            `<em>Could not load ${selectionDescription()}. Expected <code>${key}</code>. ` +
+            "Generate the matching cache with the scraper and serve this folder over HTTP " +
+            "(for example, <code>python -m http.server</code>).</em>";
           return;
         }
       }
-  }
-  // group sections by course code
-  const byCode = {};
-  for (const c of data){
-    (byCode[c.code] = byCode[c.code] || []).push(c);
-  }
-  COURSES = Object.keys(byCode).sort().map(code => {
-    const entries = byCode[code];
-    const name = entries[0].name;
-    // collect sections across all entries for this code
-    const sections = [];
-    for (const e of entries) for (const s of e.sections) sections.push(s);
-    // group by component type
-    const types = {};
-    for (const s of sections){
-      const tm = s.teachMethod || s.type || "LEC";
-      (types[tm] = types[tm] || []).push(s);
-    }
-    // precompute clash-free section combinations (one section per type)
-    const typeKeys = Object.keys(types);
-    let combos = [[]];
-    for (const tm of typeKeys){
-      const opts = types[tm].map(sec => ({sec, ms: meetings(sec)}));
-      const next = [];
-      for (const c of combos) for (const o of opts) next.push(c.concat([o]));
-      combos = next;
-    }
-    combos = combos.filter(combo => {
-      const all = [];
-      for (const o of combo) for (const m of o.ms) all.push(m);
-      for (let i=0;i<all.length;i++)
-        for (let j=i+1;j<all.length;j++)
-          if (overlaps(all[i], all[j])) return false;
-      return true;
-    });
-    return {code, name, sections, combos};
-  });
+      // Normalize and group the loaded cache through the shared module. This keeps
+      // section ordering and meeting de-duplication identical in the browser and
+      // Node validation without changing the manifest/cache path above.
+      COURSES = OPTIMIZER.groupCourses(data, { includeCombos: false });
 
-  // tutorials are attended by default (just like lectures); the user can mark a
-  // course's tutorials "not worth attending" to drop them from the timetable.
-  // No per-section selection is needed, so nothing is seeded here.
+      // tutorials are attended by default (just like lectures); the user can mark a
+      // course's tutorials "not worth attending" to drop them from the timetable.
+      // No per-section selection is needed, so nothing is seeded here.
 
-  renderCourseList();
-  const panel = document.getElementById("optPanel");
-  if (panel) panel.hidden = false;
-  const hint = document.getElementById("hint");
-  if (hint) hint.hidden = false;
-  // reset the result status for this freshly-loaded selection
-  const status = document.getElementById("status");
-  if (status) status.textContent =
-    "Load courses, then press Optimize to build a timetable.";
-}
+      renderCourseList();
+      const panel = document.getElementById("optPanel");
+      if (panel) panel.hidden = false;
+      const hint = document.getElementById("hint");
+      if (hint) hint.hidden = false;
+      // reset the result status for this freshly-loaded selection
+      const status = document.getElementById("status");
+      if (status) status.textContent =
+        "Load courses, then press Optimize to build a timetable.";
+    }
 
-// Builds (or rebuilds) the left-side course list. Reads uselessTut/uselessPra/
-// uselessLec so the "Not worth attending" checkboxes reflect the current state.
-function renderCourseList(){
-  const list = document.getElementById("courseList");
-  // capture currently-locked sections (so a rebuild from marking one tutorial
-  // useless does NOT wipe locks on other courses' sections)
-  const lockedByCode = {};
-  for (const box of list.querySelectorAll('input[type=radio]:checked')){
-    const code = box.dataset.code, tm = box.dataset.tm, sec = box.dataset.sec;
-    (lockedByCode[code] = lockedByCode[code] || {})[tm] = sec;
-  }
-  list.innerHTML = "";
-  for (const c of COURSES){
-    const wrap = document.createElement("div");
-    wrap.className = "course";
-    const head = document.createElement("div");
-    head.className = "course-head";
-    head.innerHTML = `<code>${c.code}</code> <span class="nm">${c.name}</span>`;
-    wrap.appendChild(head);
-    // "Lectures not worth attending" circular radio under the course name.
-    // Unchecked by default (= lectures ARE worth attending). When checked, none
-    // of that course's lectures are placed on the timetable.
-    if (c.sections.some(s => s.teachMethod === "LEC")){
-      const lecLbl = document.createElement("label");
-      lecLbl.className = "section lec-worth-lbl";
-      lecLbl.innerHTML =
-        `<input type="radio" name="${c.code}-LEC" class="lecWorth" data-code="${c.code}"`+
-        (uselessLec.has(c.code) ? ` checked` : ``)+
-        `> <span>Lectures not worth attending</span>`;
-      wrap.appendChild(lecLbl);
-    }
-    // radio groups for PRA and TUT: pick at most one of each to lock.
-    // LEC is always randomized and not selectable. Each PRA/TUT section has
-    // its own "not worth attending" checkbox, so you can drop just the
-    // section(s) you don't want while keeping the others.
-    const tmOrder = {"PRA": 0, "TUT": 1};
-    const groups = {};
-    for (const s of c.sections){
-      if (s.teachMethod === "PRA" || s.teachMethod === "TUT")
-        (groups[s.teachMethod] = groups[s.teachMethod] || []).push(s);
-    }
-    const tms = Object.keys(groups).sort((a,b)=>(tmOrder[a]-tmOrder[b]));
-    for (const tm of tms){
-      if (tm === "PRA"){
-        // practicals: pick at most one to lock (radio). A single "not worth
-        // attending" checkbox per course decides whether the practicals are
-        // attended at all; if checked, the whole PRA component is dropped and
-        // the section radios are hidden.
-        const hdr = document.createElement("div");
-        hdr.className = "tm-head";
-        hdr.textContent = "Practicals";
-        wrap.appendChild(hdr);
-        const praSections = groups.PRA;
-        const praUseless = praSections.every(s => uselessPra.has(c.code + "|" + s.name));
-        const praWorth = document.createElement("label");
-        praWorth.className = "section pra-worth-lbl";
-        praWorth.innerHTML =
-          `<input type="checkbox" class="praWorth" data-code="${c.code}"`+
-          (praUseless ? ` checked` : ``)+
-          `> <span>Not worth attending</span>`;
-        wrap.appendChild(praWorth);
-        // container for the PRA section radios; hidden when "not worth attending"
-        const praSecs = document.createElement("div");
-        praSecs.className = "pra-sections";
-        if (praUseless) praSecs.hidden = true;
-        const opts = praSections.slice().sort((a,b)=>a.name.localeCompare(b.name));
-        const kept = lockedByCode[c.code] && lockedByCode[c.code].PRA;
-        const praFreq = (sec) => {
-          const reps = new Set((sec.meetingTimes || []).map(m => m.repetitionTime));
-          if (reps.has("TWICE_A_WEEK")) return " (twice a week)";
-          return "";
-        };
-        for (const sec of opts){
-          const lbl = document.createElement("label");
-          lbl.className = "section";
-          const isLocked = sec.name === kept;
-          lbl.innerHTML =
-            `<input type="radio" name="${c.code}-PRA" data-code="${c.code}" data-sec="${sec.name}" data-tm="PRA"`+
-            (isLocked ? " checked" : "")+
-            `> <span class="tm">PRA</span> ${sec.name}${praFreq(sec)}`;
-          praSecs.appendChild(lbl);
-        }
-        wrap.appendChild(praSecs);
-        continue;
+    // Builds (or rebuilds) the left-side course list. Reads uselessTut/uselessPra/
+    // uselessLec so the "Not worth attending" checkboxes reflect the current state.
+    function renderCourseList() {
+      const list = document.getElementById("courseList");
+      // capture currently-locked sections (so a rebuild from marking one tutorial
+      // useless does NOT wipe locks on other courses' sections)
+      const lockedByCode = {};
+      for (const box of list.querySelectorAll('input[type=radio]:checked')) {
+        const code = box.dataset.code, tm = box.dataset.tm, sec = box.dataset.sec;
+        (lockedByCode[code] = lockedByCode[code] || {})[tm] = sec;
       }
-      // TUT: a single "Not worth attending" checkbox per course. When checked,
-      // the whole TUT component is dropped from the timetable (like practicals).
-      // By default tutorials ARE attended, so the checkbox starts unchecked.
-      const tutHdr = document.createElement("div");
-      tutHdr.className = "tm-head";
-      tutHdr.textContent = "Tutorials";
-      wrap.appendChild(tutHdr);
-      const tutWorth = document.createElement("label");
-      tutWorth.className = "section tut-worth-lbl";
-      tutWorth.innerHTML =
-        `<input type="checkbox" class="tutWorth" data-code="${c.code}"`+
-        (uselessTut.has(c.code) ? ` checked` : ``)+
-        `> <span>Not worth attending</span>`;
-      wrap.appendChild(tutWorth);
-      // container for the TUT section radios; hidden when "not worth attending".
-      // These are display-only: tutorials are not user-locked (the optimizer
-      // picks one), but the sections are listed so the user can see them.
-      const tutSecs = document.createElement("div");
-      tutSecs.className = "tut-sections";
-      if (uselessTut.has(c.code)) tutSecs.hidden = true;
-      const tutOpts = groups.TUT.slice().sort((a,b)=>a.name.localeCompare(b.name));
-      const tutFreq = (sec) => {
-        const reps = new Set((sec.meetingTimes || []).map(m => m.repetitionTime));
-        if (reps.has("TWICE_A_WEEK")) return " (twice a week)";
-        return "";
-      };
-      const keptTut = lockedByCode[c.code] && lockedByCode[c.code].TUT;
-      for (const sec of tutOpts){
-        const secMts = sec.meetingTimes || [];
-        const isLocked = sec.name === keptTut;
-        const lbl = document.createElement("label");
-        lbl.className = "section";
-        lbl.innerHTML =
-          `<input type="radio" name="${c.code}-TUT" data-code="${c.code}" data-sec="${sec.name}" data-tm="TUT"`+
-          (isLocked ? " checked" : "")+
-          `> <span class="tm">TUT</span> ${sec.name}${tutFreq(sec)}`;
-        tutSecs.appendChild(lbl);
-        // when a multi-meeting TUT section is selected, show one toggle per
-        // class so the user can pick which meetings to attend. Single-meeting
-        // sections need no per-class selector.
-        if (isLocked && secMts.length > 1){
-          const wrap2 = document.createElement("div");
-          wrap2.className = "tut-classes";
-          const chosenKey = c.code + "|" + sec.name;
-          const chosen = tutAttend.get(chosenKey);
-          const selSet = chosen instanceof Set ? chosen
-                         : new Set(secMts.map((_,i)=>i));
-          secMts.forEach((mt, i) => {
-            const cb = document.createElement("label");
-            cb.className = "tut-class";
-            const d = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][mt.start.day - 1] || ("D"+mt.start.day);
-            const fmt = (ms) => {
-              let h = Math.floor(+ms/3600000), m = Math.floor((+ms%3600000)/60000);
-              const ap = h >= 12 ? "pm" : "am";
-              let h12 = h % 12; if (h12 === 0) h12 = 12;
-              return h12 + ":" + String(m).padStart(2,"0") + ap;
+      list.innerHTML = "";
+      for (const c of COURSES) {
+        const wrap = document.createElement("div");
+        wrap.className = "course";
+        const head = document.createElement("div");
+        head.className = "course-head";
+        head.innerHTML = `<code>${c.code}</code> <span class="nm">${c.name}</span>`;
+        wrap.appendChild(head);
+        // "Lectures not worth attending" circular radio under the course name.
+        // Unchecked by default (= lectures ARE worth attending). When checked, none
+        // of that course's lectures are placed on the timetable.
+        if (c.sections.some(s => s.teachMethod === "LEC")) {
+          const lecLbl = document.createElement("label");
+          lecLbl.className = "section lec-worth-lbl";
+          lecLbl.innerHTML =
+            `<input type="radio" name="${c.code}-LEC" class="lecWorth" data-code="${c.code}"` +
+            (uselessLec.has(c.code) ? ` checked` : ``) +
+            `> <span>Lectures not worth attending</span>`;
+          wrap.appendChild(lecLbl);
+        }
+        // radio groups for PRA and TUT: pick at most one of each to lock.
+        // LEC is always randomized and not selectable. Each PRA/TUT section has
+        // its own "not worth attending" checkbox, so you can drop just the
+        // section(s) you don't want while keeping the others.
+        const tmOrder = { "PRA": 0, "TUT": 1 };
+        const groups = {};
+        for (const s of c.sections) {
+          if (s.teachMethod === "PRA" || s.teachMethod === "TUT")
+            (groups[s.teachMethod] = groups[s.teachMethod] || []).push(s);
+        }
+        const tms = Object.keys(groups).sort((a, b) => (tmOrder[a] - tmOrder[b]));
+        for (const tm of tms) {
+          if (tm === "PRA") {
+            // practicals: pick at most one to lock (radio). A single "not worth
+            // attending" checkbox per course decides whether the practicals are
+            // attended at all; if checked, the whole PRA component is dropped and
+            // the section radios are hidden.
+            const hdr = document.createElement("div");
+            hdr.className = "tm-head";
+            hdr.textContent = "Practicals";
+            wrap.appendChild(hdr);
+            const praSections = groups.PRA;
+            const praUseless = praSections.every(s => uselessPra.has(c.code + "|" + s.name));
+            const praWorth = document.createElement("label");
+            praWorth.className = "section pra-worth-lbl";
+            praWorth.innerHTML =
+              `<input type="checkbox" class="praWorth" data-code="${c.code}"` +
+              (praUseless ? ` checked` : ``) +
+              `> <span>Not worth attending</span>`;
+            wrap.appendChild(praWorth);
+            // container for the PRA section radios; hidden when "not worth attending"
+            const praSecs = document.createElement("div");
+            praSecs.className = "pra-sections";
+            if (praUseless) praSecs.hidden = true;
+            const opts = praSections.slice().sort((a, b) => a.name.localeCompare(b.name));
+            const kept = lockedByCode[c.code] && lockedByCode[c.code].PRA;
+            const praFreq = (sec) => {
+              const reps = new Set((sec.meetingTimes || []).map(m => m.repetitionTime));
+              if (reps.has("TWICE_A_WEEK")) return " (twice a week)";
+              return "";
             };
-            const on = selSet.has(i);
-            cb.innerHTML =
-              `<input type="checkbox" class="tutClass" data-code="${c.code}" data-sec="${sec.name}" data-idx="${i}"`+
-              (on ? " checked" : "")+
-              `> <span class="tc-day">${d}</span> <span class="tc-time">${fmt(mt.start.millisofday)}–${fmt(mt.end.millisofday)}</span>`;
-            // attach a direct change listener so toggling a class is handled
-            // reliably regardless of whether the user clicks the box or its label
-            // text (avoids any event-retargeting ambiguity in delegation).
-            const input = cb.querySelector("input.tutClass");
-            input.addEventListener("change", () => {
-              const key = c.code + "|" + sec.name;
-              let set = tutAttend.get(key);
-              if (!(set instanceof Set)){
-                set = new Set(secMts.map((_,j)=>j));
-                tutAttend.set(key, set);
-              }
-              if (input.checked) set.add(i); else set.delete(i);
-              // require at least one class selected: if the user just unchecked
-              // the last remaining one, revert it and keep the full section.
-              if (set.size === 0){
-                set.add(i);
-                input.checked = true;
-              }
-              if (set.size === secMts.length) tutAttend.delete(key);
-              bestSoFar = null; // tutorial attendance changed: restart cumulative search
+            for (const sec of opts) {
+              const lbl = document.createElement("label");
+              lbl.className = "section";
+              const isLocked = sec.name === kept;
+              lbl.innerHTML =
+                `<input type="radio" name="${c.code}-PRA" data-code="${c.code}" data-sec="${sec.name}" data-tm="PRA"` +
+                (isLocked ? " checked" : "") +
+                `> <span class="tm">PRA</span> ${sec.name}${praFreq(sec)}`;
+              praSecs.appendChild(lbl);
+            }
+            wrap.appendChild(praSecs);
+            continue;
+          }
+          // TUT: a single "Not worth attending" checkbox per course. When checked,
+          // the whole TUT component is dropped from the timetable (like practicals).
+          // By default tutorials ARE attended, so the checkbox starts unchecked.
+          const tutHdr = document.createElement("div");
+          tutHdr.className = "tm-head";
+          tutHdr.textContent = "Tutorials";
+          wrap.appendChild(tutHdr);
+          const tutWorth = document.createElement("label");
+          tutWorth.className = "section tut-worth-lbl";
+          tutWorth.innerHTML =
+            `<input type="checkbox" class="tutWorth" data-code="${c.code}"` +
+            (uselessTut.has(c.code) ? ` checked` : ``) +
+            `> <span>Not worth attending</span>`;
+          wrap.appendChild(tutWorth);
+          // container for the TUT section radios; hidden when "not worth attending".
+          // These are display-only: tutorials are not user-locked (the optimizer
+          // picks one), but the sections are listed so the user can see them.
+          const tutSecs = document.createElement("div");
+          tutSecs.className = "tut-sections";
+          if (uselessTut.has(c.code)) tutSecs.hidden = true;
+          const tutOpts = groups.TUT.slice().sort((a, b) => a.name.localeCompare(b.name));
+          const tutFreq = (sec) => {
+            const reps = new Set((sec.meetingTimes || []).map(m => m.repetitionTime));
+            if (reps.has("TWICE_A_WEEK")) return " (twice a week)";
+            return "";
+          };
+          const keptTut = lockedByCode[c.code] && lockedByCode[c.code].TUT;
+          for (const sec of tutOpts) {
+            const secMts = sec.meetingTimes || [];
+            const isLocked = sec.name === keptTut;
+            const lbl = document.createElement("label");
+            lbl.className = "section";
+            lbl.innerHTML =
+              `<input type="radio" name="${c.code}-TUT" data-code="${c.code}" data-sec="${sec.name}" data-tm="TUT"` +
+              (isLocked ? " checked" : "") +
+              `> <span class="tm">TUT</span> ${sec.name}${tutFreq(sec)}`;
+            tutSecs.appendChild(lbl);
+            // when a multi-meeting TUT section is selected, show one toggle per
+            // class so the user can pick which meetings to attend. Single-meeting
+            // sections need no per-class selector.
+            if (isLocked && secMts.length > 1) {
+              const wrap2 = document.createElement("div");
+              wrap2.className = "tut-classes";
+              const chosenKey = c.code + "|" + sec.name;
+              const chosen = tutAttend.get(chosenKey);
+              const selSet = chosen instanceof Set ? chosen
+                : new Set(secMts.map((_, i) => i));
+              secMts.forEach((mt, i) => {
+                const cb = document.createElement("label");
+                cb.className = "tut-class";
+                const d = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][mt.start.day - 1] || ("D" + mt.start.day);
+                const fmt = (ms) => {
+                  let h = Math.floor(+ms / 3600000), m = Math.floor((+ms % 3600000) / 60000);
+                  const ap = h >= 12 ? "pm" : "am";
+                  let h12 = h % 12; if (h12 === 0) h12 = 12;
+                  return h12 + ":" + String(m).padStart(2, "0") + ap;
+                };
+                const on = selSet.has(i);
+                cb.innerHTML =
+                  `<input type="checkbox" class="tutClass" data-code="${c.code}" data-sec="${sec.name}" data-idx="${i}"` +
+                  (on ? " checked" : "") +
+                  `> <span class="tc-day">${d}</span> <span class="tc-time">${fmt(mt.start.millisofday)}–${fmt(mt.end.millisofday)}</span>`;
+                // attach a direct change listener so toggling a class is handled
+                // reliably regardless of whether the user clicks the box or its label
+                // text (avoids any event-retargeting ambiguity in delegation).
+                const input = cb.querySelector("input.tutClass");
+                input.addEventListener("change", () => {
+                  const key = c.code + "|" + sec.name;
+                  let set = tutAttend.get(key);
+                  if (!(set instanceof Set)) {
+                    set = new Set(secMts.map((_, j) => j));
+                    tutAttend.set(key, set);
+                  }
+                  if (input.checked) set.add(i); else set.delete(i);
+                  // require at least one class selected: if the user just unchecked
+                  // the last remaining one, revert it and keep the full section.
+                  if (set.size === 0) {
+                    set.add(i);
+                    input.checked = true;
+                  }
+                  if (set.size === secMts.length) tutAttend.delete(key);
+                  clearBestSoFar(); // tutorial attendance changed: restart cumulative search
+                });
+                wrap2.appendChild(cb);
+              });
+              tutSecs.appendChild(wrap2);
+            }
+          }
+          wrap.appendChild(tutSecs);
+        }
+        list.appendChild(wrap);
+      }
+      // keep the unselect-toggle state in sync for freshly-built radios
+      for (const r of list.querySelectorAll('input[type=radio]'))
+        r._wasChecked = r.checked;
+      // clicking an already-selected radio again toggles it off (unselect). For the
+      // LEC "not worth attending" radio this also clears uselessLec so the unselect
+      // survives the next re-render (otherwise the stale state would reappear).
+      list.onclick = (e) => {
+        const box = e.target;
+        if (box && box.type === "radio" && box._wasChecked) {
+          box.checked = false;
+          if (box.classList.contains("lecWorth") && box.dataset.code) {
+            uselessLec.delete(box.dataset.code);
+          }
+          // a previously-selected TUT/PRA/LEC radio is now deselected: re-render so
+          // the selection (and any per-class toggles) reflect the unlocked state.
+          renderCourseList();
+          clearBestSoFar(); // lecture attendance changed: restart cumulative search
+          return;
+        }
+        for (const r of list.querySelectorAll('input[type=radio]'))
+          r._wasChecked = r.checked;
+        clearBestSoFar(); // locks changed: restart cumulative search
+      };
+      // per-course "not worth attending" toggles: PRA and TUT each use a single
+      // per-course checkbox; LEC uses a single per-course radio. The handlers below
+      // update the corresponding useless* set and re-render.
+      list.onchange = (e) => {
+        const box = e.target;
+        if (box && box.classList && box.classList.contains("lecWorth")) {
+          const code = box.dataset.code;
+          if (box.checked) uselessLec.add(code);
+          else uselessLec.delete(code);
+          renderCourseList();
+          clearBestSoFar(); // lecture attendance changed: restart cumulative search
+          return;
+        }
+        if (box.classList.contains("praWorth")) {
+          const code = box.dataset.code;
+          const course = COURSES.find(c => c.code === code);
+          const praNames = course.sections
+            .filter(s => s.teachMethod === "PRA")
+            .map(s => s.name);
+          for (const n of praNames) {
+            if (box.checked) uselessPra.add(code + "|" + n);
+            else uselessPra.delete(code + "|" + n);
+          }
+          renderCourseList();
+          clearBestSoFar(); // practical attendance changed: restart cumulative search
+          return;
+        }
+        if (box.classList.contains("tutWorth")) {
+          const code = box.dataset.code;
+          if (box.checked) uselessTut.add(code);
+          else uselessTut.delete(code);
+          renderCourseList();
+          clearBestSoFar(); // tutorial attendance changed: restart cumulative search
+          return;
+        }
+        // selecting a TUT section radio: re-render so its per-class toggle buttons
+        // (for multi-meeting sections) appear underneath it.
+        if (box.dataset && box.dataset.tm === "TUT") {
+          renderCourseList();
+          clearBestSoFar(); // tutorial selection changed: restart cumulative search
+          return;
+        }
+      };
+    }
+
+    // Read the current DOM locks and attendance subset, then delegate all course
+    // construction to the shared browser/Node optimizer. It returns the
+    // renderer-compatible per-course shape consumed by renderPlan.
+    function selectedPlan() {
+      const checked = document.querySelectorAll('#courseList input:checked');
+      const locksByCode = {};
+      for (const box of checked) {
+        // Per-class TUT checkboxes share data-code/data-sec but have no data-tm;
+        // only section radios represent a locked component.
+        const tm = box.dataset.tm;
+        if (!tm) continue;
+        const code = box.dataset.code, secName = box.dataset.sec;
+        const course = COURSES.find(c => c.code === code);
+        if (!course) continue;
+        const sec = course.sections.find(s => s.name === secName);
+        if (!sec) continue;
+        let ms = OPTIMIZER.meetings(sec);
+        // Preserve the selected meeting subset for a locked multi-meeting TUT.
+        if (tm === "TUT") {
+          const set = tutAttend.get(code + "|" + secName);
+          if (set instanceof Set) ms = ms.filter((_, index) => set.has(index));
+        }
+        // An empty selected subset means the section is no longer locked; the
+        // shared builder will choose an active TUT section instead.
+        if (ms.length === 0) continue;
+        (locksByCode[code] = locksByCode[code] || []).push({ sec, ms, tm });
+      }
+
+      // Use plain arrays/objects at this boundary so the same state is accepted
+      // by the browser and by the Node VM harness without changing control state.
+      const attendance = {};
+      for (const [key, selected] of tutAttend.entries())
+        attendance[key] = Array.from(selected);
+      return OPTIMIZER.buildCoursePlans(COURSES, {
+        locks: locksByCode,
+        uselessTut: Array.from(uselessTut),
+        uselessPra: Array.from(uselessPra),
+        uselessLec: Array.from(uselessLec),
+        tutAttend: attendance,
+      });
+    }
+
+    // Build one deterministic identity for every input that can affect a plan.
+    // The raw normalized sections cover loaded data; the built plans cover active
+    // locks/attendance and active component types; the control collections cover
+    // exclusions and tutorial subsets that may not appear in the built output.
+    function canonicalSort(left, right) {
+      const a = OPTIMIZER.stableStringify(left);
+      const b = OPTIMIZER.stableStringify(right);
+      return a < b ? -1 : a > b ? 1 : 0;
+    }
+
+    function canonicalStringSet(value) {
+      return Array.from(value || [], item => String(item)).sort();
+    }
+
+    function canonicalLoadedCourses() {
+      return COURSES.map(course => ({
+        code: String(course.code),
+        name: String(course.name || course.code),
+        sections: (course.sections || []).map(section => ({
+          type: OPTIMIZER.componentType(section),
+          name: OPTIMIZER.sectionName(section),
+          meetings: OPTIMIZER.meetings(section).map(OPTIMIZER.meetingSignature),
+          // Keep every loaded section field that the page/cache may expose, not
+          // just the fields currently consumed by the search implementation.
+          data: OPTIMIZER.stableStringify(section),
+        })).sort(canonicalSort),
+      })).sort(canonicalSort);
+    }
+
+    function canonicalMeetingSignatures(value) {
+      return (Array.isArray(value) ? value : [])
+        .map(OPTIMIZER.meetingSignature)
+        .sort();
+    }
+
+    function canonicalOption(option) {
+      const item = option || {};
+      const source = item.tm || item.teachMethod || item.type || item.sec || item;
+      return {
+        type: item.lec ? "LEC" : OPTIMIZER.componentType(source),
+        section: OPTIMIZER.sectionSignature(item.sec || item.section || {}),
+        sections: (Array.isArray(item.secs) ? item.secs : []).map(String).sort(),
+        meetings: canonicalMeetingSignatures(item.ms),
+        signature: OPTIMIZER.optionSignature(item),
+      };
+    }
+
+    function canonicalActivePlans(plans) {
+      return (plans || []).map(plan => ({
+        code: String(plan.code),
+        name: String(plan.name || plan.code),
+        poolTypes: (plan.poolTypes || []).map(String).sort(),
+        locked: (plan.locked || []).map(lock => ({
+          tm: String(lock.tm || ""),
+          section: OPTIMIZER.sectionSignature(lock.sec || {}),
+          meetings: canonicalMeetingSignatures(lock.ms),
+        })).sort(canonicalSort),
+        invalidLocks: (plan.invalidLocks || []).map(lock => ({
+          reason: String(lock && lock.reason || ""),
+          tm: String(lock && lock.tm || ""),
+          sectionName: String(lock && lock.sectionName || ""),
+        })).sort(canonicalSort),
+        combos: (plan.combos || []).map(combo =>
+          (Array.isArray(combo) ? combo : []).map(canonicalOption)
+            .sort(canonicalSort))
+          .sort(canonicalSort),
+      })).sort(canonicalSort);
+    }
+
+    function canonicalTutorialAttendance() {
+      return Array.from(tutAttend.entries()).map(([key, selected]) => {
+        let indices = [];
+        if (selected instanceof Set) indices = Array.from(selected);
+        else if (Array.isArray(selected)) indices = selected.slice();
+        else if (selected && typeof selected === "object") {
+          indices = Object.keys(selected).filter(index => selected[index]);
+        }
+        return {
+          key: String(key),
+          indices: indices.map(Number).filter(Number.isFinite).sort((a, b) => a - b),
+        };
+      }).sort(canonicalSort);
+    }
+
+    function bestSoFarInputKey(plans, opts) {
+      return OPTIMIZER.stableStringify({
+        courses: canonicalLoadedCourses(),
+        activePlans: canonicalActivePlans(plans),
+        exclusions: {
+          lecture: canonicalStringSet(uselessLec),
+          practical: canonicalStringSet(uselessPra),
+          tutorial: canonicalStringSet(uselessTut),
+        },
+        tutorialAttendance: canonicalTutorialAttendance(),
+        options: {
+          campus: opts.campus,
+          lunch: opts.lunch,
+          early: opts.early,
+          late: opts.late,
+        },
+      });
+    }
+
+    function pageResultItemType(item) {
+      if (item && item.lec) return "LEC";
+      return OPTIMIZER.componentType(item &&
+        (item.tm || item.teachMethod || item.type || item.sec || item));
+    }
+
+    function pageResultItemSectionNames(item) {
+      const names = Array.isArray(item && item.secs)
+        ? item.secs.map(String)
+        : [];
+      const section = item && (item.sec || item.section);
+      if (section) names.push(OPTIMIZER.sectionName(section));
+      return Array.from(new Set(names));
+    }
+
+    function pageResultItemMeetings(item) {
+      return canonicalMeetingSignatures(item && item.ms);
+    }
+
+    function sameCanonicalList(left, right) {
+      return left.length === right.length && left.every((value, index) => value === right[index]);
+    }
+
+    function pageResultHasExactLocks(actual, expected) {
+      const actualItems = Array.isArray(actual && actual.pick) ? actual.pick : null;
+      if (!actualItems) return false;
+      const used = new Set();
+      for (const lock of expected || []) {
+        const requiredType = String(lock.tm || pageResultItemType(lock));
+        const requiredName = OPTIMIZER.sectionName(lock.sec || lock.section || lock);
+        const requiredMeetings = canonicalMeetingSignatures(lock.ms);
+        let found = -1;
+        for (let index = 0; index < actualItems.length; index++) {
+          if (used.has(index)) continue;
+          const item = actualItems[index];
+          if (pageResultItemType(item) !== requiredType) continue;
+          if (!pageResultItemSectionNames(item).includes(requiredName)) continue;
+          if (!sameCanonicalList(pageResultItemMeetings(item), requiredMeetings)) continue;
+          found = index;
+          break;
+        }
+        if (found < 0) return false;
+        used.add(found);
+      }
+      return true;
+    }
+
+    function pageResultMatchesCourse(actual, expected) {
+      if (!actual || !Array.isArray(actual.pick)) return false;
+      const expectedTypes = new Map();
+      for (const type of expected.poolTypes || []) {
+        const normalized = String(type);
+        expectedTypes.set(normalized, (expectedTypes.get(normalized) || 0) + 1);
+      }
+      for (const lock of expected.locked || []) {
+        const normalized = String(lock.tm || pageResultItemType(lock));
+        expectedTypes.set(normalized, (expectedTypes.get(normalized) || 0) + 1);
+      }
+
+      const actualTypes = new Map();
+      for (const item of actual.pick) {
+        if (!item || !Array.isArray(item.ms) || item.ms.length === 0) return false;
+        const type = pageResultItemType(item);
+        actualTypes.set(type, (actualTypes.get(type) || 0) + 1);
+      }
+      if (actualTypes.size !== expectedTypes.size) return false;
+      for (const [type, count] of expectedTypes.entries()) {
+        if (actualTypes.get(type) !== count) return false;
+      }
+      return pageResultHasExactLocks(actual, expected.locked || []);
+    }
+
+    function pageResultMatchesPlans(plan, expectedPlans) {
+      if (!Array.isArray(plan) || !Array.isArray(expectedPlans) ||
+        plan.length === 0 || plan.length !== expectedPlans.length) return false;
+      const expectedCodes = expectedPlans.map(course => String(course.code));
+      const actualCodes = plan.map(course => String(course && course.code));
+      if (new Set(expectedCodes).size !== expectedCodes.length ||
+        new Set(actualCodes).size !== actualCodes.length) return false;
+      if (!expectedCodes.every(code => actualCodes.includes(code))) return false;
+      const actualByCode = new Map(plan.map(course => [String(course.code), course]));
+      return expectedPlans.every(expected =>
+        pageResultMatchesCourse(actualByCode.get(String(expected.code)), expected));
+    }
+
+    function hasLegacySearchMetadata(result) {
+      const forbidden = ["deadline", "timedOut", "sampled", "random", "fallback", "iterations"];
+      const hasForbidden = value => value && typeof value === "object" &&
+        forbidden.some(key => Object.prototype.hasOwnProperty.call(value, key));
+      return hasForbidden(result) || hasForbidden(result && result.diagnostics);
+    }
+
+    // Guard the only result shape that may enter cumulative UI state. In
+    // addition to proof flags, validate coverage of the current built input,
+    // exact locks/attendance, required non-excluded components, and every
+    // canonical value before allowing a result to reach the renderer.
+    function isCompleteOptimalPlanResult(result, opts, expectedPlans) {
+      if (!result || result.complete !== true || result.optimal !== true ||
+        result.status !== "OPTIMAL" || hasLegacySearchMetadata(result) ||
+        !Array.isArray(result.plan) || !pageResultMatchesPlans(result.plan, expectedPlans)) {
+        return false;
+      }
+
+      let evaluation;
+      try {
+        if (!OPTIMIZER.isClashFree(result.plan)) return false;
+        evaluation = OPTIMIZER.evaluatePlan(result.plan);
+      } catch (error) {
+        return false;
+      }
+      const objective = OPTIMIZER.objectiveKey(evaluation, opts);
+      return result.signature === OPTIMIZER.planSignature(result.plan) &&
+        OPTIMIZER.stableStringify(result.evaluation) === OPTIMIZER.stableStringify(evaluation) &&
+        OPTIMIZER.stableStringify(result.objective) === OPTIMIZER.stableStringify(objective) &&
+        Number.isFinite(result.score) && result.score === OPTIMIZER.scorePlan(result.plan, opts);
+    }
+
+    function isCompleteNoSolutionResult(result) {
+      if (!result || result.complete !== true || result.optimal !== true ||
+        result.status !== "NO_SOLUTION" || result.plan !== null ||
+        (result.evaluation !== undefined && result.evaluation !== null) ||
+        (result.objective !== undefined && result.objective !== null) ||
+        hasLegacySearchMetadata(result)) return false;
+      // The shared solver uses null for these terminal fields. Accept an omitted
+      // optional field for compatibility, but never accept a stale non-null one.
+      return (result.signature === undefined || result.signature === null) &&
+        (result.score === undefined || result.score === null);
+    }
+
+    // Shared renderer: builds the time-by-day grid from an already-chosen
+    // clash-free plan and writes it into #timetable.
+    function renderPlan(plans, plan, msg, combinationsSearched) {
+      const status = document.getElementById("status");
+      const out = document.getElementById("timetable");
+      // build a time-by-day grid: rows are 1-hour slots, from the earliest event
+      // hour up to the latest event's end (ignoring empty hours at the edges).
+      const events = {};
+      const palette = ["#0d6efd", "#198754", "#dc3545", "#fd7e14", "#6f42c1",
+        "#0dcaf0", "#d63384", "#6c757d", "#20c997", "#ffc107",
+        "#6610f2", "#e83e8c"];
+      const colorOf = {};
+      let ci = 0;
+      for (const p of plan) {
+        if (!(p.code in colorOf)) colorOf[p.code] = palette[ci++ % palette.length];
+        for (const item of p.pick) {
+          const isLec = !!item.lec;
+          item.ms.forEach((m, idx) => {
+            const secName = isLec ? (item.secs ? item.secs[idx] : "LEC*") : item.sec.name;
+            const sh = Math.floor(m.start / 3600000);
+            const eh = Math.floor(m.end / 3600000);
+            const span = Math.max(1, eh - sh);
+            (events[m.day] = events[m.day] || []).push({
+              startHour: sh, spanHours: span, code: p.code, sec: secName, color: colorOf[p.code]
             });
-            wrap2.appendChild(cb);
           });
-          tutSecs.appendChild(wrap2);
         }
       }
-      wrap.appendChild(tutSecs);
-    }
-    list.appendChild(wrap);
-  }
-  // keep the unselect-toggle state in sync for freshly-built radios
-  for (const r of list.querySelectorAll('input[type=radio]'))
-    r._wasChecked = r.checked;
-  // clicking an already-selected radio again toggles it off (unselect). For the
-  // LEC "not worth attending" radio this also clears uselessLec so the unselect
-  // survives the next re-render (otherwise the stale state would reappear).
-  list.onclick = (e) => {
-    const box = e.target;
-    if (box && box.type === "radio" && box._wasChecked){
-      box.checked = false;
-      if (box.classList.contains("lecWorth") && box.dataset.code){
-        uselessLec.delete(box.dataset.code);
+      // determine grid bounds from actual events (no empty rows at the edges)
+      let START_H = 24, END_H = 0;
+      for (const d of Object.keys(events))
+        for (const e of events[d]) {
+          START_H = Math.min(START_H, e.startHour);
+          END_H = Math.max(END_H, e.startHour + e.spanHours);
+        }
+      if (START_H > END_H) { START_H = 8; END_H = 8; } // no events at all
+      // render table: first column = time, then Mon..Fri. Every hour-row emits one
+      // cell per day (no rowspan), so horizontal alignment is always exact. Days
+      // outside Mon..Fri are ignored so stray data can never add extra columns.
+      const DAYS_SHOWN = [1, 2, 3, 4, 5];
+      let html = "<table class='grid'><thead><tr><th>Time</th>";
+      for (const d of DAYS_SHOWN) html += `<th>${DAYS[d - 1]}</th>`;
+      html += "</tr></thead><tbody>";
+      for (let h = START_H; h < END_H; h++) {
+        html += `<tr><td class="hour">${fmt12(h, 0)}</td>`;
+        for (const d of DAYS_SHOWN) {
+          const dayEvs = events[d] || [];
+          // all events covering this hour (overlapping classes split side-by-side)
+          const covering = dayEvs.filter(e => e.startHour <= h && h < e.startHour + e.spanHours);
+          if (covering.length === 0) {
+            html += `<td class="empty"></td>`;
+          } else if (covering.length === 1) {
+            const ev = covering[0];
+            const isHead = ev.startHour === h;
+            const isLast = h === ev.startHour + ev.spanHours - 1;
+            const cls = "evt" + (isHead && ev.spanHours > 1 ? " head" : "") +
+              (!isHead ? " cont" + (isLast ? " last" : "") : "");
+            html += `<td class="${cls}" style="background:${ev.color}">` +
+              (isHead ? `<div class="evt-top"><code>${ev.code}</code></div>` +
+                `<div class="evt-sec">${ev.sec}</div>` : ``) +
+              `</td>`;
+          } else {
+            // two (or more) overlapping classes: render side by side within the cell
+            let inner = `<div class="evt-split">`;
+            for (const ev of covering) {
+              const isHead = ev.startHour === h;
+              const isLast = h === ev.startHour + ev.spanHours - 1;
+              const cls = "evt split-cell" + (isHead && ev.spanHours > 1 ? " head" : "") +
+                (!isHead ? " cont" + (isLast ? " last" : "") : "");
+              inner += `<div class="${cls}" style="background:${ev.color}">` +
+                (isHead ? `<div class="evt-top"><code>${ev.code}</code></div>` +
+                  `<div class="evt-sec">${ev.sec}</div>` : ``) +
+                `</div>`;
+            }
+            inner += `</div>`;
+            html += `<td class="evt split-parent">${inner}</td>`;
+          }
+        }
+        html += "</tr>";
       }
-      // a previously-selected TUT/PRA/LEC radio is now deselected: re-render so
-      // the selection (and any per-class toggles) reflect the unlocked state.
-      renderCourseList();
-      bestSoFar = null; // lecture attendance changed: restart cumulative search
-      return;
+      html += "</tbody></table>";
+      out.innerHTML = html;
+      const lockedCount = plans.reduce((n, p) => n + p.locked.length, 0);
+      status.textContent = `Built a timetable from ${lockedCount} locked section(s) across ` +
+        `${plan.length} course(s). ${msg} ${searchedCombinationsText(
+          combinationsSearched, ".",
+        )}`;
     }
-    for (const r of list.querySelectorAll('input[type=radio]'))
-      r._wasChecked = r.checked;
-    bestSoFar = null; // locks changed: restart cumulative search
-  };
-  // per-course "not worth attending" toggles: PRA and TUT each use a single
-  // per-course checkbox; LEC uses a single per-course radio. The handlers below
-  // update the corresponding useless* set and re-render.
-  list.onchange = (e) => {
-    const box = e.target;
-    if (box && box.classList && box.classList.contains("lecWorth")){
-      const code = box.dataset.code;
-      if (box.checked) uselessLec.add(code);
-      else uselessLec.delete(code);
-      renderCourseList();
-      bestSoFar = null; // lecture attendance changed: restart cumulative search
-      return;
-    }
-    if (box.classList.contains("praWorth")){
-      const code = box.dataset.code;
-      const course = COURSES.find(c => c.code === code);
-      const praNames = course.sections
-        .filter(s => s.teachMethod === "PRA")
-        .map(s => s.name);
-      for (const n of praNames){
-        if (box.checked) uselessPra.add(code + "|" + n);
-        else uselessPra.delete(code + "|" + n);
-      }
-      renderCourseList();
-      bestSoFar = null; // practical attendance changed: restart cumulative search
-      return;
-    }
-    if (box.classList.contains("tutWorth")){
-      const code = box.dataset.code;
-      if (box.checked) uselessTut.add(code);
-      else uselessTut.delete(code);
-      renderCourseList();
-      bestSoFar = null; // tutorial attendance changed: restart cumulative search
-      return;
-    }
-    // selecting a TUT section radio: re-render so its per-class toggle buttons
-    // (for multi-meeting sections) appear underneath it.
-    if (box.dataset && box.dataset.tm === "TUT"){
-      renderCourseList();
-      bestSoFar = null; // tutorial selection changed: restart cumulative search
-      return;
-    }
-  };
-}
 
-// Returns plan objects. `locked` = the at-most-one PRA and (optionally) the
-// TUT the user picked via radio. A selected multi-meeting TUT is locked with
-// only its chosen meetings (tutAttend). If no TUT is selected, every TUT
-// section is pooled and the optimizer picks one. LEC is never user-locked;
-// PRA/Lecture components not locked are randomized from their remaining sections.
-function selectedPlan(){
-  const checked = document.querySelectorAll('#courseList input:checked');
-  const byCode = {};
-  for (const box of checked){
-    // only the per-section PRA/TUT/LEC radios carry data-tm; skip the
-    // per-class TUT checkboxes (which share data-code/data-sec but have no
-    // data-tm) so they aren't mistaken for locked sections.
-    const tm = box.dataset.tm;
-    if (!tm) continue;
-    const code = box.dataset.code, secName = box.dataset.sec;
-    const course = COURSES.find(c => c.code === code);
-    if (!course) continue;
-    const sec = course.sections.find(s => s.name === secName);
-    if (!sec) continue;
-    let ms = meetings(sec);
-    // for a multi-meeting TUT section the user may have unchecked some classes;
-    // keep only the selected meetings (default: all of them).
-    if (tm === "TUT"){
-      const set = tutAttend.get(code + "|" + secName);
-      if (set instanceof Set) ms = ms.filter((_, i) => set.has(i));
+    function selectedOptimizationOptions() {
+      return {
+        campus: document.getElementById("optCampus").checked ? 1 : 0,
+        lunch: document.getElementById("optLunch").checked ? 1 : 0,
+        early: document.getElementById("optEarly").checked ? 1 : 0,
+        late: document.getElementById("optLate").checked ? 1 : 0,
+      };
     }
-    // if every class of a selected TUT was unchecked, ignore the selection
-    // entirely (don't lock an empty section); the optimizer then picks a TUT.
-    if (ms.length === 0) continue;
-    byCode[code] = byCode[code] || {code, locked: []};
-    byCode[code].locked.push({sec, ms, tm});
-  }
-  // build per-course plan objects for every course on the page
-  const isUseless = (tm, code, secName) =>
-    tm === "PRA" && uselessPra.has(code + "|" + secName) ||
-    tm === "TUT" && uselessTut.has(code);
-  const plans = [];
-  for (const course of COURSES){
-    const locked = byCode[course.code] ? byCode[course.code].locked : [];
-    const lockedFiltered = locked.filter(l => !isUseless(l.tm, course.code, l.sec.name));
-    // which component types are already satisfied by a locked section? (TUT is
-    // never locked as a type; it is filled by the optimizer unless uselessTut.)
-    const lockedTypes = new Set(lockedFiltered.map(l => l.tm));
-    // pool grouped by component type. PRA = one option per section (locked one
-    // excluded). LEC = options are triples of individual lecture meetings (one
-    // from each weekly slot) chosen from ANY section, ordered 1st < 2nd < 3rd in
-    // the week, non-clashing. TUT is built separately below as combinations.
-    const pool = {};
-    const lecWorthAttending = !uselessLec.has(course.code);
-    for (const sec of course.sections){
-      const tm = sec.teachMethod;
-      if (tm === "TUT") continue; // handled separately
-      if (tm === "PRA" && isUseless(tm, course.code, sec.name)) continue;
-      if (lockedTypes.has(tm)) continue; // already have this type locked
-      if (tm === "LEC"){
-        if (!lecWorthAttending) continue; // lectures not worth attending: skip
-        const subj = course.sections.filter(s => s.teachMethod === "LEC");
-        pool.LEC = buildLecOptions(subj);
+
+    function optimizationWorkerConstructor() {
+      if (typeof Worker === "function") return Worker;
+      if (typeof window !== "undefined" && typeof window.Worker === "function")
+        return window.Worker;
+      return null;
+    }
+
+    function currentOptimizationRequest(request) {
+      if (!isActiveOptimizationRequest(request)) return false;
+      try {
+        const currentPlans = selectedPlan();
+        const currentOptions = selectedOptimizationOptions();
+        return bestSoFarInputKey(currentPlans, currentOptions) === request.key;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function releaseOptimization(request) {
+      if (activeOptimization !== request) return;
+      activeOptimization = null;
+      if (request.timer !== undefined && typeof clearTimeout === "function") {
+        try { clearTimeout(request.timer); } catch (e) { /* best effort */ }
+      }
+      terminateOptimizationWorker(request.worker);
+    }
+
+    function optimizationErrorMessage(error) {
+      if (error && error.message) return String(error.message);
+      if (error && error.error && error.error.message) return String(error.error.message);
+      return String(error || "Optimizer worker failed");
+    }
+
+    function showOptimizationError(request, error) {
+      if (!currentOptimizationRequest(request)) return;
+      releaseOptimization(request);
+      clearBestSoFar();
+      const out = document.getElementById("timetable");
+      const status = document.getElementById("status");
+      const info = document.getElementById("optInfo");
+      if (out) out.innerHTML = "";
+      if (status) status.textContent = `Optimization failed. ${searchedCombinationsText(
+        request && request.searchedCombinations, ".",
+      )} Press Optimize to retry.`;
+      if (info) info.textContent = optimizationErrorMessage(error);
+    }
+
+    function applyOptimizationResult(request, result) {
+      if (!currentOptimizationRequest(request)) return;
+      requestSearchedCombinations(request,
+        result && result.combinationsSearched !== undefined
+          ? result.combinationsSearched : request.searchedCombinations);
+      releaseOptimization(request);
+
+      const plans = request.plans;
+      const opts = request.opts;
+      const inputKey = request.key;
+      const status = document.getElementById("status");
+      const out = document.getElementById("timetable");
+      const info = document.getElementById("optInfo");
+
+      // Only the two proof-carrying terminal result forms may cross into the
+      // page state. A malformed or incomplete worker response is an error, not
+      // a no-solution result and never reaches renderPlan().
+      const terminal = result && result.complete === true && result.optimal === true &&
+        (result.status === "OPTIMAL" || result.status === "NO_SOLUTION");
+      if (!terminal) {
+        if (bestSoFarKey !== request.key) clearBestSoFar();
+        if (out) out.innerHTML = "";
+        if (status) status.textContent = `Optimization failed. ${searchedCombinationsText(
+          request.searchedCombinations, ".",
+        )} Press Optimize to retry.`;
+        if (info) info.textContent = "The optimizer returned an incomplete result.";
+        return;
+      }
+
+      // A proven no-solution result always invalidates the displayed plan,
+      // including a previous result for the same input signature.
+      if (result.status === "NO_SOLUTION") {
+        if (!isCompleteNoSolutionResult(result)) {
+          clearBestSoFar();
+          if (out) out.innerHTML = "";
+          if (status) status.textContent = `Optimization failed. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )} Press Optimize to retry.`;
+          if (info) info.textContent = "The optimizer returned an invalid no-solution result.";
+          return;
+        }
+        clearBestSoFar();
+        if (out) out.innerHTML = "";
+        if (status) status.textContent = "Could not build a clash-free timetable. Either two sections " +
+          "you must attend overlap, or the remaining slots can't be filled without a clash. " +
+          `Check the sections you locked in. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )}`;
+        if (info) info.textContent = "";
+        return;
+      }
+
+      // Incomplete, non-optimal, malformed, or conflicting results are never
+      // allowed to replace or render a complete result. If the input changed,
+      // discard the old result rather than risking stale timetable reuse. For an
+      // unchanged input the prior complete result remains in memory, but is not
+      // rendered until a new complete result arrives.
+      if (!isCompleteOptimalPlanResult(result, opts, plans)) {
+        if (bestSoFarKey !== inputKey) clearBestSoFar();
+        if (out) out.innerHTML = "";
+        if (status) status.textContent = "Could not build a clash-free timetable. Either two sections " +
+          "you must attend overlap, or the remaining slots can't be filled without a clash. " +
+          `Check the sections you locked in. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )}`;
+        if (info) info.textContent = "";
+        return;
+      }
+
+      // Only complete exact results participate in cumulative comparison. Equal
+      // objective/tie results are accepted as well as strictly better results;
+      // comparePlans supplies the stable signature tie-break.
+      if (!bestSoFarResult || bestSoFarKey !== inputKey) {
+        bestSoFarResult = result;
+        bestSoFar = result.plan;
+        bestSoFarKey = inputKey;
+      } else if (OPTIMIZER.comparePlans(result.plan, bestSoFarResult.plan, opts) <= 0) {
+        bestSoFarResult = result;
+        bestSoFar = result.plan;
+      }
+
+      // Revalidate the retained cumulative value before it reaches the DOM.
+      if (!bestSoFarResult || bestSoFarKey !== inputKey ||
+        !isCompleteOptimalPlanResult(bestSoFarResult, opts, plans)) {
+        clearBestSoFar();
+        if (out) out.innerHTML = "";
+        if (status) status.textContent = "Could not build a clash-free timetable. Either two sections " +
+          "you must attend overlap, or the remaining slots can't be filled without a clash. " +
+          `Check the sections you locked in. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )}`;
+        if (info) info.textContent = "";
+        return;
+      }
+
+      const score = OPTIMIZER.scorePlan(bestSoFarResult.plan, opts);
+      if (info) info.textContent = "optimized (penalty " + score + ")";
+      renderPlan(
+        plans,
+        bestSoFarResult.plan,
+        "Click Optimize for another arrangement.",
+        request.searchedCombinations,
+      );
+    }
+
+    function receiveOptimizationMessage(request, data) {
+      if (!isActiveOptimizationRequest(request) || !data ||
+        data.requestId !== request.requestId ||
+        data.generation !== request.generation || data.key !== request.key) return;
+      if (data.type === "progress") {
+        updateOptimizationProgress(request, data.combinationsSearched);
+        return;
+      }
+      // Terminal messages still undergo the full input-key validation before
+      // they can clear state or render a timetable.
+      if (!currentOptimizationRequest(request)) return;
+      if (data.type === "error" || (data.error && !data.result)) {
+        showOptimizationError(request, data.error || data);
+        return;
+      }
+      if (!data.result) {
+        showOptimizationError(request, new Error("worker returned no result"));
+        return;
+      }
+      applyOptimizationResult(request, data.result);
+    }
+
+    function scheduleExactFallback(request) {
+      const run = () => {
+        if (!isActiveOptimizationRequest(request)) return;
+        const applyCompleted = result => {
+          if (currentOptimizationRequest(request)) applyOptimizationResult(request, result);
+        };
+        const handleError = error => {
+          if (currentOptimizationRequest(request)) showOptimizationError(request, error);
+        };
+        try {
+          const result = OPTIMIZER.findBestPlan(request.plans, request.opts, {
+            cooperative: true,
+            onProgress(progress) {
+              updateOptimizationProgress(
+                request,
+                progress && progress.combinationsSearched,
+              );
+            },
+            shouldContinue() {
+              return isActiveOptimizationRequest(request);
+            },
+            schedule(callback) {
+              const timer = setTimeout(callback, 0);
+              request.timer = timer;
+              return timer;
+            },
+            onComplete: applyCompleted,
+            onError: handleError,
+          });
+          if (result && typeof result.then === "function") {
+            result.catch(handleError);
+          } else {
+            applyCompleted(result);
+          }
+        } catch (error) {
+          handleError(error);
+        }
+      };
+      if (typeof setTimeout === "function") {
+        request.timer = setTimeout(run, 0);
+      } else if (typeof queueMicrotask === "function") {
+        queueMicrotask(run);
       } else {
-        if (lockedFiltered.some(l => l.sec.name === sec.name)) continue;
-        (pool[tm] = pool[tm] || []).push({sec, ms: meetings(sec)});
+        run();
       }
     }
-    // tutorials: if the user selected a TUT section it is already locked (with
-    // only its chosen meetings). Otherwise, when not marked "not worth attending",
-    // pool every TUT section as an option for the optimizer to pick one (attending
-    // all of its meetings). Per-class toggling only applies to a selected section.
-    if (!uselessTut.has(course.code) && !lockedTypes.has("TUT")){
-      for (const sec of course.sections){
-        if (sec.teachMethod === "TUT")
-          (pool.TUT = pool.TUT || []).push({sec, ms: meetings(sec)});
-      }
-    }
-    // precompute clash-free combos over the pool (one option per type/component).
-    // Result depends only on the pool contents + which types are locked + which
-    // practicals/tutorials are marked useless, all captured in a signature key.
-    const uselessSig = course.sections
-      .filter(s => s.teachMethod === "PRA")
-      .map(s => s.name + (isUseless(s.teachMethod, course.code, s.name) ? "!" : ""))
-      .join(",");
-    // Drop any component type whose pool is empty (e.g. a course whose lectures
-    // cannot be arranged into distinct-day, non-clashing slots, or a lecture
-    // section with no meeting times). Multiplying the combo list by an empty
-    // pool would zero out the whole course and make the timetable unsolvable;
-    // instead we simply omit that component (it behaves like "not placed").
-    const typeKeys = Object.keys(pool).filter(tm => pool[tm].length > 0);
-    const tutSig = uselessTut.has(course.code) ? "X" :
-      (lockedTypes.has("TUT") ? "L" : "") +
-      course.sections.filter(s => s.teachMethod === "TUT")
-        .map(s => {
-          const set = tutAttend.get(course.code + "|" + s.name);
-          const tag = set instanceof Set ? [...set].sort().join("") : "all";
-          return s.name + ":" + tag;
-        })
-        .join(",");
-    const comboSig = course.code + "|" + uselessSig + "|" +
-      [...lockedTypes].sort().join(",") + "|" +
-      typeKeys.map(tm => tm + ":" + pool[tm].length).join(",") + "|TUT:" + tutSig;
-    let combos = _comboCache.get(comboSig);
-    if (!combos){
-      combos = [[]];
-      for (const tm of typeKeys){
-        const opts = pool[tm];
-        const next = [];
-        for (const c of combos) for (const o of opts) next.push(c.concat([o]));
-        combos = next;
-      }
-      combos = combos.filter(combo => {
-        const all = [];
-        for (const o of combo) for (const m of o.ms) all.push(m);
-        for (let i=0;i<all.length;i++)
-          for (let j=i+1;j<all.length;j++)
-            if (overlaps(all[i], all[j])) return false;
-        return true;
-      });
-      _comboCache.set(comboSig, combos);
-    }
-    plans.push({code: course.code, name: course.name, locked: lockedFiltered, poolTypes: typeKeys, combos});
-  }
-  return plans;
-}
 
-// Build lecture options. "1st / 2nd / 3rd lecture of the week" means a
-// section's own 1st, 2nd, 3rd meeting in its sequence (e.g. a section meeting
-// Mon9, Mon18, Tue10 has its 2nd lecture at Mon18). So we pick ONE section per
-// POSITION independently. To avoid two lectures landing on the same day (which
-// would look like duplicate weekly ranks), the three chosen meetings must also
-// be on distinct days and non-clashing. Sections may repeat or differ per
-// position.
-// Cache of lecture options keyed by a signature of the input sections, so
-// repeated Optimize presses (which call selectedPlan -> buildLecOptions for
-// every course) skip rebuilding the identical Cartesian product.
-const _lecOptCache = new Map();
-// Cache of per-course clash-free section combos, keyed by a signature of the
-// pool + locked types + tutorial-useless state. Reused across Optimize presses
-// so unchanged courses skip rebuilding the identical Cartesian product.
-const _comboCache = new Map();
-function _lecSig(secs){
-  return secs.map(s => s.name + ":" + (s.meetingTimes||[]).map(m=>m.day+","+m.start+","+m.end).join("|")).join(";");
-}
-function buildLecOptions(lecSections){
-  const sig = _lecSig(lecSections);
-  if (_lecOptCache.has(sig)) return _lecOptCache.get(sig);
-  // scrape.py already stores each section's meetingTimes chronologically
-  // (Mon->Fri), so meeting index 0 = 1st lecture of the week, etc.
-  const all = lecSections.map(sec => ({sec, ms: meetings(sec)}))
-                         .filter(o => o.ms.length);
-  if (!all.length) return [];
-  const count = Math.max(...all.map(o => o.ms.length));
-  // positions[p] = sections' p-th (chronological) meeting {sec, m}
-  const positions = [];
-  for (let p=0; p<count; p++){
-    positions[p] = [];
-    for (const o of all){
-      if (p < o.ms.length) positions[p].push({sec: o.sec, m: o.ms[p]});
-    }
-  }
-  const opts = [];
-  const chosen = [];
-  const rec = (p) => {
-    if (p === count){ opts.push(chosen.slice()); return; }
-    for (const cand of positions[p]){
-      if (chosen.some(c => c.m.day === cand.m.day)) continue;   // distinct days
-      if (chosen.some(c => overlaps(c.m, cand.m))) continue;    // non-clash
-      chosen.push(cand);
-      rec(p+1);
-      chosen.pop();
-    }
-  };
-  rec(0);
-  const result = opts.map(comb => ({
-    lec: true,
-    sec: { name: "LEC*" },
-    ms: comb.map(p => p.m),
-    secs: comb.map(p => p.sec.name)
-  }));
-  _lecOptCache.set(sig, result);
-  return result;
-}
+    function startOptimization(plans, opts, inputKey) {
+      // A repeated Optimize supersedes the previous request. Its late message
+      // remains harmless because both its generation and canonical key become
+      // invalid before the new request is posted.
+      cancelOptimization();
+      const request = {
+        requestId: ++optimizationRequestId,
+        generation: optimizationGeneration,
+        key: inputKey,
+        plans,
+        opts,
+        worker: null,
+        timer: undefined,
+        searchedCombinations: 0,
+      };
+      activeOptimization = request;
 
-// Backtracking solver: place each course's LOCKED sections first (fixed), then
-// randomly fill its remaining component types without clashing. Gives up
-// gracefully if the locked sections themselves clash or nothing fits.
-function solve(plans, maxTries){
-  for (let attempt=0; attempt<maxTries; attempt++){
-    const order = shuffle(plans.slice());
-    const plan = [];
-    const chosen = [];
-    let ok = true;
-    for (const c of order){
-      // locked sections must be placed and must not clash with anything chosen
-      for (const l of c.locked){
-        if (!clashFree(l.ms, chosen)){ ok = false; break; }
-      }
-      if (!ok) break;
-      const pick = [...c.locked];
-      if (c.poolTypes.length){
-        const combos = shuffle(c.combos.slice());
-        let placed = null;
-        const lockedMs = c.locked.flatMap(l => l.ms);
-        for (const combo of combos){
-          const blocks = [];
-          for (const o of combo) for (const m of o.ms) blocks.push(m);
-          // combo must not clash with other courses NOR this course's own locked sections
-          if (clashFree(blocks, chosen) && clashFree(blocks, lockedMs)){ placed = combo; break; }
-        }
-        if (!placed){ ok = false; break; }
-        for (const o of placed) pick.push(o);
-      }
-      for (const o of pick) for (const m of o.ms) chosen.push(m);
-      plan.push({code:c.code, name:c.name, pick});
-    }
-    if (ok) return plan;
-  }
-  return null;
-}
+      const status = document.getElementById("status");
+      const info = document.getElementById("optInfo");
+      if (status) status.textContent = searchedCombinationsText(0);
+      if (info) info.textContent = "searching…";
 
-// ---- Optimizer ----------------------------------------------------------
-// Scores a clash-free plan by the user's preferences. Lower = better.
-// Penalties (each configurable via opts):
-//   campus : free (non-class) time on campus across the week, PLUS one unit
-//            per day that has any class (so the optimizer also tries to drop
-//            whole days).
-//   lunch  : when set, reward keeping >=1 free hour inside the 11:00-13:00
-//            window; penalize only the portion of that window taken by classes
-//            (a schedule with a full lunch break gets no lunch penalty).
-//   early  : prefer schedules whose classes end as early as possible. Penalty
-//            = sum of all class end times, so shifting ANY class earlier helps
-//            (not just the single latest one).
-//   late   : prefer schedules whose classes start as late as possible. Penalty
-//            = -sum of all class start times, so shifting ANY class later helps.
-function scorePlan(plan, opts){
-  const o = Object.assign({campus:1, early:0, late:0, lunch:0}, opts||{});
-  let score = 0;
-  // gather per-day blocks: {start, end}
-  const byDay = {};
-  for (const p of plan) for (const item of p.pick)
-    for (const m of item.ms){
-      (byDay[m.day] = byDay[m.day] || []).push({start:m.start, end:m.end});
-    }
-  // "minimize free time on campus" also rewards dropping whole days: every
-  // day that has any class adds 1 to the score, so the optimizer prefers
-  // to compress classes into fewer days (free days cost nothing).
-  for (const d of Object.keys(byDay)) score += o.campus * 1;
-  // track sums of start/end times across the whole week, for the
-  // "start as late as possible" / "end as early as possible" preferences.
-  // We sum every block (not just the single extreme) so the optimizer prefers
-  // fewer/more classes at the late/early edge, not just the one latest end.
-  let sumStart = 0, sumEnd = 0;
-  for (const d of Object.keys(byDay)){
-    const blocks = byDay[d].sort((a,b)=>a.start-b.start);
-    // free time on campus = sum of gaps between consecutive classes that day
-    // (time present but not in class).
-    let free = 0;
-    for (let i=0; i<blocks.length-1; i++){
-      const gapStart = blocks[i].end;
-      const gapEnd = blocks[i+1].start;
-      const gapH = (gapEnd - gapStart) / 3600000;
-      if (gapH > 0) free += gapH;
-    }
-    if (free > 0) score += o.campus * free;
-    // "Provide time for lunch": reward keeping at least 1 free hour inside the
-    // 11:00-13:00 window. If >=1h of that window is free, no penalty. Otherwise
-    // penalize the occupied portion (the part of the window taken by classes),
-    // so the optimizer prefers schedules that leave a real lunch break.
-    if (o.lunch){
-      const lunchStart = 11*3600000, lunchEnd = 13*3600000;
-      const windowMs = lunchEnd - lunchStart;
-      // free time inside the lunch window = window minus class-occupied parts
-      let occupied = 0;
-      for (const b of blocks){
-        const over = Math.min(b.end, lunchEnd) - Math.max(b.start, lunchStart);
-        if (over > 0) occupied += over;
+      const WorkerConstructor = optimizationWorkerConstructor();
+      if (!WorkerConstructor) {
+        scheduleExactFallback(request);
+        return;
       }
-      const lunchFree = (windowMs - occupied) / 3600000;
-      if (lunchFree < 1){
-        // own weight (not o.campus) so "Provide time for lunch" works
-        // independently of the campus preference.
-        score += 1 * (1 - lunchFree); // penalty for the missing lunch time
-      }
-    }
-    for (const b of blocks){
-      sumStart += b.start;
-      sumEnd += b.end;
-    }
-  }
-  // End as early as possible: penalize the total of all class end times, so
-  // shifting ANY class earlier helps (fewer/more classes ending late all count).
-  if (o.early) score += sumEnd / 3600000;
-  // Start as late as possible: reward later starts (negative penalty on total).
-  if (o.late) score -= sumStart / 3600000;
-  return score;
-}
 
-// Sample many clash-free plans and return the one with the lowest score.
-// Honours the same locked sections as solve(). Falls back to a random
-// clash-free plan if nothing samples well within the time budget.
-function solveBest(plans, iterations, opts){
-  const deadline = Date.now() + 9000;
-  let best = null, bestScore = Infinity;
-  let samples = 0;
-  // Each tick keeps trying (up to a few hundred attempts) until it lands a
-  // genuinely clash-free plan, so we evaluate `iterations` real plans rather
-  // than mostly null attempts. Stops at the deadline either way.
-  while (samples < iterations && Date.now() < deadline){
-    let plan = null;
-    for (let a = 0; a < 500 && !plan; a++) plan = solve(plans, 1);
-    if (!plan) break;            // genuinely unsolvable under locks
-    samples++;
-    const s = scorePlan(plan, opts);
-    if (s < bestScore){ bestScore = s; best = plan; }
-  }
-  return best;
-}
-
-// Shared renderer: builds the time-by-day grid from an already-chosen
-// clash-free plan and writes it into #timetable.
-function renderPlan(plans, plan, msg){
-  const status = document.getElementById("status");
-  const out = document.getElementById("timetable");
-  // build a time-by-day grid: rows are 1-hour slots, from the earliest event
-  // hour up to the latest event's end (ignoring empty hours at the edges).
-  const events = {};
-  const palette = ["#0d6efd","#198754","#dc3545","#fd7e14","#6f42c1",
-                   "#0dcaf0","#d63384","#6c757d","#20c997","#ffc107",
-                   "#6610f2","#e83e8c"];
-  const colorOf = {};
-  let ci = 0;
-  for (const p of plan){
-    if (!(p.code in colorOf)) colorOf[p.code] = palette[ci++ % palette.length];
-    for (const item of p.pick){
-      const isLec = !!item.lec;
-      item.ms.forEach((m, idx) => {
-        const secName = isLec ? (item.secs ? item.secs[idx] : "LEC*") : item.sec.name;
-        const sh = Math.floor(m.start/3600000);
-        const eh = Math.floor(m.end/3600000);
-        const span = Math.max(1, eh - sh);
-        (events[m.day] = events[m.day] || []).push({
-          startHour: sh, spanHours: span, code: p.code, sec: secName, color: colorOf[p.code]
+      try {
+        const worker = new WorkerConstructor("optimizer-worker.js");
+        request.worker = worker;
+        worker.onmessage = event => receiveOptimizationMessage(request, event && event.data);
+        worker.onerror = error => showOptimizationError(request, error);
+        worker.onmessageerror = error => showOptimizationError(request, error);
+        worker.postMessage({
+          type: "optimize",
+          requestId: request.requestId,
+          generation: request.generation,
+          key: request.key,
+          input: { plans: request.plans, options: request.opts },
         });
-      });
-    }
-  }
-  // determine grid bounds from actual events (no empty rows at the edges)
-  let START_H = 24, END_H = 0;
-  for (const d of Object.keys(events))
-    for (const e of events[d]){
-      START_H = Math.min(START_H, e.startHour);
-      END_H = Math.max(END_H, e.startHour + e.spanHours);
-    }
-  if (START_H > END_H){ START_H = 8; END_H = 8; } // no events at all
-  // render table: first column = time, then Mon..Fri. Every hour-row emits one
-  // cell per day (no rowspan), so horizontal alignment is always exact. Days
-  // outside Mon..Fri are ignored so stray data can never add extra columns.
-  const DAYS_SHOWN = [1,2,3,4,5];
-  let html = "<table class='grid'><thead><tr><th>Time</th>";
-  for (const d of DAYS_SHOWN) html += `<th>${DAYS[d-1]}</th>`;
-  html += "</tr></thead><tbody>";
-  for (let h=START_H; h<END_H; h++){
-    html += `<tr><td class="hour">${fmt12(h,0)}</td>`;
-    for (const d of DAYS_SHOWN){
-      const dayEvs = events[d] || [];
-      // all events covering this hour (overlapping classes split side-by-side)
-      const covering = dayEvs.filter(e => e.startHour <= h && h < e.startHour + e.spanHours);
-      if (covering.length === 0){
-        html += `<td class="empty"></td>`;
-      } else if (covering.length === 1){
-        const ev = covering[0];
-        const isHead = ev.startHour === h;
-        const isLast = h === ev.startHour + ev.spanHours - 1;
-        const cls = "evt" + (isHead && ev.spanHours > 1 ? " head" : "") +
-                   (!isHead ? " cont" + (isLast ? " last" : "") : "");
-        html += `<td class="${cls}" style="background:${ev.color}">`+
-                (isHead ? `<div class="evt-top"><code>${ev.code}</code></div>`+
-                          `<div class="evt-sec">${ev.sec}</div>` : ``)+
-                `</td>`;
-      } else {
-        // two (or more) overlapping classes: render side by side within the cell
-        let inner = `<div class="evt-split">`;
-        for (const ev of covering){
-          const isHead = ev.startHour === h;
-          const isLast = h === ev.startHour + ev.spanHours - 1;
-          const cls = "evt split-cell" + (isHead && ev.spanHours > 1 ? " head" : "") +
-                     (!isHead ? " cont" + (isLast ? " last" : "") : "");
-          inner += `<div class="${cls}" style="background:${ev.color}">`+
-                   (isHead ? `<div class="evt-top"><code>${ev.code}</code></div>`+
-                             `<div class="evt-sec">${ev.sec}</div>` : ``)+
-                   `</div>`;
-        }
-        inner += `</div>`;
-        html += `<td class="evt split-parent">${inner}</td>`;
+      } catch (error) {
+        showOptimizationError(request, error);
       }
     }
-    html += "</tr>";
-  }
-  html += "</tbody></table>";
-  out.innerHTML = html;
-  const lockedCount = plans.reduce((n,p)=>n+p.locked.length,0);
-  status.textContent = `Built a timetable from ${lockedCount} locked section(s) across ${plan.length} course(s). ${msg}`;
-}
 
-// Sample many clash-free plans and keep the one that best satisfies the
-// checked optimizer preferences. Falls back to a random clash-free plan.
-// Cumulative: the best plan across all Optimize presses is remembered, so
-// pressing again can only improve (never regress) the shown timetable.
-function optimize(){
-  const plans = selectedPlan();
-  const status = document.getElementById("status");
-  const out = document.getElementById("timetable");
-  const info = document.getElementById("optInfo");
-  if (plans.length === 0){
-    status.textContent = "No courses loaded.";
-    out.innerHTML = "";
-    return;
-  }
-  const opts = {
-    campus: document.getElementById("optCampus").checked ? 1 : 0,
-    lunch:  document.getElementById("optLunch").checked ? 1 : 0,
-    early:  document.getElementById("optEarly").checked  ? 1 : 0,
-    late:   document.getElementById("optLate").checked   ? 1 : 0,
-  };
-  const best = solveBest(plans, 900, opts);
-  if (!best){
-    out.innerHTML = "";
-    status.textContent = "Could not build a clash-free timetable. Either two sections " +
-      "you must attend overlap, or the remaining slots can't be filled without a clash. " +
-      "Check the sections you locked in.";
-    return;
-  }
-  // If the inputs (locks or options) changed since the remembered best, start
-  // the cumulative search fresh; otherwise only adopt a strictly better plan.
-  const optsKey = JSON.stringify(opts);
-  const plansKey = JSON.stringify(plans.map(p => p.locked.map(l => l.tm + l.sec.name + ":" + l.ms.map(m=>m.day+""+m.start).join(","))));
-  if (!bestSoFar || optsKey !== bestSoFarOpts || plansKey !== bestSoFarPlans){
-    bestSoFar = best; bestSoFarOpts = optsKey; bestSoFarPlans = plansKey;
-  } else {
-    const s = scorePlan(best, opts);
-    if (s < scorePlan(bestSoFar, opts)) bestSoFar = best;
-  }
-  const score = scorePlan(bestSoFar, opts);
-  if (info) info.textContent = "optimized (penalty " + score + ")";
-  renderPlan(plans, bestSoFar, "Click Optimize for another arrangement.");
-}
+    // Run the shared complete search away from the page call stack and render
+    // only a complete worker/fallback result. Cumulative state is keyed by every
+    // plan-affecting input, not just locks and options, so a result can never
+    // leak across data/attendance changes.
+    function optimize() {
+      const plans = selectedPlan();
+      const status = document.getElementById("status");
+      const out = document.getElementById("timetable");
+      const info = document.getElementById("optInfo");
+      if (plans.length === 0) {
+        clearBestSoFar();
+        status.textContent = "No courses loaded.";
+        out.innerHTML = "";
+        if (info) info.textContent = "";
+        return;
+      }
+      const opts = selectedOptimizationOptions();
+      const inputKey = bestSoFarInputKey(plans, opts);
+      startOptimization(plans, opts, inputKey);
+    }
 
-document.getElementById("optimize").addEventListener("click", optimize);
-document.getElementById("loadData").addEventListener("click", load);
-// show the "include lunch" sub-option only when "Minimize free time on campus" is checked
-document.getElementById("optCampus").addEventListener("change", (e) => {
-  const wrap = document.getElementById("lunchWrap");
-  if (wrap) wrap.hidden = !e.target.checked;
-});
-// Changing a dropdown does NOT clear the shown courses or the generated
-// timetable. The currently-displayed selection stays until the user presses
-// Load to fetch a NEW program/year/semester.
-for (const id of ["selTrack","selYear","selSession"])
-   document.getElementById(id).addEventListener("change", () => {});
-clearCourses();
-</script>
+    document.getElementById("optimize").addEventListener("click", optimize);
+    document.getElementById("loadData").addEventListener("click", load);
+    // show the "include lunch" sub-option only when "Minimize free time on campus" is checked
+    document.getElementById("optCampus").addEventListener("change", (e) => {
+      const wrap = document.getElementById("lunchWrap");
+      if (wrap) wrap.hidden = !e.target.checked;
+      clearBestSoFar();
+    });
+    for (const id of ["optLunch", "optEarly", "optLate"])
+      document.getElementById(id).addEventListener("change", clearBestSoFar);
+    // Changing a dropdown does NOT clear the shown courses or the generated
+    // timetable. The currently-displayed selection stays until the user presses
+    // Load to fetch a NEW program/year/semester. Manifest-backed availability is
+    // refreshed as the selection changes without touching the optimizer state.
+    for (const id of ["selTrack", "selYear", "selSession"])
+      document.getElementById(id).addEventListener("change", updateAvailability);
+    loadManifest();
+    clearCourses();
+  </script>
 </body>
+
 </html>

@@ -1,0 +1,180 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Reproduce the reported failure and write the bug-condition exploration test": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863190
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669867954
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788670349356
+      }
+    ],
+    "2. Observe and write preservation property tests before implementation": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863459
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788670352738
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788670736815
+      }
+    ],
+    "3.1 Audit and complete candidate construction while preserving the shared API": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863567
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788670740482
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788670976301
+      }
+    ],
+    "3.2 Make search exhaustive, deterministic, objective-correct, and proof-carrying in `web/optimizer.js`": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863641
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788670980068
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788671470132
+      }
+    ],
+    "3.3 Move browser execution off the main thread without changing the solver": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863708
+      },
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788671473797
+      }
+    ],
+    "3.4 Enforce page result guards and input-safe cumulative state in `web/index.html`": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863795
+      },
+      {
+        "executionId": "8a3b7405-3e7b-47b2-b3c4-12f2a76299ca",
+        "chatSessionId": "sess_0d204ec8-82da-4adc-b8f5-c440dcfea459",
+        "timestamp": 1788701670544
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788704038545
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788704398625
+      },
+      {
+        "executionId": "150ed761-1e61-4eb1-9b28-f401b655c381",
+        "chatSessionId": "sess_82260985-5491-4059-8316-43780554ec4d",
+        "timestamp": 1788704824135
+      }
+    ],
+    "3.5 Extend focused browser/Node tests and static scope checks": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863865
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788703219549
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788703681364
+      }
+    ],
+    "3.6 Verify the bug-condition property after the fix": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669863936
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788703686132
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788703778256
+      }
+    ],
+    "3.7 Verify the preservation property after the fix": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669864028
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788703782485
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788704031877
+      }
+    ],
+    "4. Checkpoint - Run complete validation and review scope": [
+      {
+        "executionId": "d6361f03-31aa-4688-9927-76682b800154",
+        "chatSessionId": "sess_e1809972-38a4-4c0a-8179-0ec24c6bb739",
+        "timestamp": 1788669864105
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788704416083
+      },
+      {
+        "executionId": "982f51c4-238b-492b-ad7c-7fb904a8678c",
+        "chatSessionId": "sess_7987a0f8-85cf-4aaa-8aed-424dbd2ce5af",
+        "timestamp": 1788704804668
+      }
+    ]
+  }
+}
