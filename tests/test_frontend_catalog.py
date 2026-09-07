@@ -51,7 +51,7 @@ class FrontendCatalogTests(unittest.TestCase):
         self.assertNotIn('fetch("courses.json")', self.html)
 
     def test_legacy_electrical_option_remains_available(self):
-        self.assertIn('<option value="electrical">ECE (Electrical)</option>', self.html)
+        self.assertIn('<option value="electrical">Electrical</option>', self.html)
 
     def test_shared_optimizer_loads_before_inline_ui_and_replaces_legacy_sampler(self):
         shared_tag = '<script src="optimizer.js"></script>'
@@ -61,7 +61,10 @@ class FrontendCatalogTests(unittest.TestCase):
         self.assertIn('const OPTIMIZER = window.TimetableOptimizer;', self.html)
         self.assertIn('OPTIMIZER.groupCourses(data, { includeCombos: false });', self.html)
         self.assertIn('OPTIMIZER.buildCoursePlans(COURSES', self.html)
-        self.assertIn('OPTIMIZER.findBest' + 'Plan(request.plans, request.opts)', self.html)
+        self.assertRegex(
+            self.html,
+            r"OPTIMIZER\.findBestPlan\(request\.plans, request\.opts,",
+        )
         self.assertNotIn('solveBest' + '(', self.html)
         self.assertNotIn('Math.random' + '()', self.html)
         self.assertNotIn('Date.now' + '()', self.html)
@@ -72,7 +75,10 @@ class FrontendCatalogTests(unittest.TestCase):
         self.assertIn("function isCompleteOptimalPlanResult(result, opts, expectedPlans)", self.html)
         self.assertIn('result.complete !== true || result.optimal !== true ||', self.html)
         self.assertIn("OPTIMIZER.comparePlans(result.plan, bestSoFarResult.plan, opts) <= 0", self.html)
-        self.assertIn("renderPlan(plans, bestSoFarResult.plan", self.html)
+        self.assertRegex(
+            self.html,
+            r"renderPlan\(\s*plans,\s*bestSoFarResult\.plan",
+        )
         self.assertNotIn("bestSoFarOpts", self.html)
         self.assertNotIn("bestSoFarPlans", self.html)
 

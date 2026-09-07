@@ -1086,9 +1086,63 @@
      * checks, bounds, and final validation.  A candidate is renderer-shaped
      * ({code, name, pick}) plus private search metadata kept in a descriptor.
      */
-    function findBestPlan(plans, options) {
+    function findBestPlan(plans, options, hooks) {
+      const progressCallback = typeof hooks === "function"
+        ? hooks
+        : hooks && typeof hooks.onProgress === "function"
+          ? hooks.onProgress
+          : null;
+      const debugCallback = hooks && typeof hooks.onDebug === "function"
+        ? hooks.onDebug
+        : null;
+      const PROGRESS_INTERVAL = 128;
+      const requestedSearchCountOffset = Number(
+        options && options.__searchCountOffset,
+      );
+      const searchCountOffset = Number.isFinite(requestedSearchCountOffset)
+        ? Math.max(0, Math.floor(requestedSearchCountOffset)) : 0;
+      // Keep the public/protocol name for compatibility, but count recursive
+      // search states rather than only complete timetable evaluations.
+      let combinationsSearched = searchCountOffset;
+      const emitProgress = (done = false) => {
+        if (!progressCallback) return;
+        if (done || combinationsSearched === 1 ||
+          combinationsSearched % PROGRESS_INTERVAL === 0) {
+          progressCallback({ combinationsSearched, done });
+        }
+      };
+      const countSearchState = () => {
+        combinationsSearched++;
+        emitProgress(false);
+      };
+      const finishResult = result => {
+        emitProgress(true);
+        const diagnostics = result.diagnostics
+          ? Object.assign({}, result.diagnostics, { combinationsSearched })
+          : result.diagnostics;
+        return Object.assign({}, result, { combinationsSearched, diagnostics });
+      };
+
       const normalizedPlans = normalizePlanInput(plans);
       const opts = normalizeOptions(options);
+      // The first lunch-enabled pass can safely omit candidates whose own
+      // schedule already destroys the lunch gap, because a zero-deficit plan
+      // is always preferable. If that restricted pass cannot find zero lunch
+      // deficit, rerun exactly with every candidate so a positive-deficit
+      // optimum remains available.
+      const includePositiveLunchCandidates = !!(
+        options && options.__includePositiveLunchDeficitCandidates
+      );
+      const filterUnsafeLunchCandidates = opts.lunch !== 0 &&
+        !includePositiveLunchCandidates;
+      const retryWithAllLunchCandidates = () => findBestPlan(
+        plans,
+        Object.assign({}, options || {}, {
+          __includePositiveLunchDeficitCandidates: true,
+          __searchCountOffset: combinationsSearched,
+        }),
+        hooks,
+      );
       const lockDiagnostics = validateLockedSections(normalizedPlans, { details: true });
       const diagnostics = normalizedPlans.length ? lockDiagnostics : {
         valid: false,
@@ -1103,29 +1157,30 @@
         complete: true,
         optimal: true,
         nodesVisited: 0,
+        combinationsSearched: 0,
         evaluation: null,
         objective: null,
         score: null,
         signature: null,
         options: opts,
-        diagnostics,
+        diagnostics: Object.assign({}, diagnostics, { combinationsSearched: 0 }),
       };
 
       // Lock conflicts are rejected before candidate enumeration.  In
       // particular, this catches two active locks from the same course rather
       // than allowing the current course's locks to bypass one another.
-      if (!normalizedPlans.length || !diagnostics.valid) return base;
+      if (!normalizedPlans.length || !diagnostics.valid) return finishResult(base);
 
       const duplicateCodes = new Set();
       for (const course of normalizedPlans) {
         if (duplicateCodes.has(course.code)) {
-          return Object.assign({}, base, {
+          return finishResult(Object.assign({}, base, {
             diagnostics: Object.assign({}, diagnostics, {
               valid: false,
               status: "NO_SOLUTION",
               reason: "DUPLICATE_COURSE_CODE",
             }),
-          });
+          }));
         }
         duplicateCodes.add(course.code);
       }
@@ -1148,6 +1203,27 @@
           sumEndMs += meeting.end;
         }
         return { days, sumStartMs, sumEndMs };
+      };
+
+      // Lunch deficit is monotone under adding meetings: a candidate that
+      // already consumes too much of a day's lunch window can never appear in
+      // a zero-deficit completion. Keep that fact on the candidate rather than
+      // discarding it during construction, because lunch is an objective: when
+      // no zero-deficit timetable exists, a positive-deficit candidate may be
+      // part of the exact optimum.
+      const candidateHasLunchGap = events => {
+        if (!opts.lunch) return true;
+        const byDay = new Map();
+        for (const meeting of events) {
+          if (!byDay.has(meeting.day)) byDay.set(meeting.day, []);
+          byDay.get(meeting.day).push(meeting);
+        }
+        for (const blocks of byDay.values()) {
+          const free = (LUNCH_END - LUNCH_START) -
+            mergedOccupiedMs(blocks, LUNCH_START, LUNCH_END);
+          if (free < HOUR) return false;
+        }
+        return true;
       };
 
       /*
@@ -1188,6 +1264,9 @@
           // callers may provide normalized plans directly, and no internally
           // conflicting candidate may enter the exact search.
           if (!isClashFree([candidate])) continue;
+          const events = candidateEventList(candidate);
+          const lunchSafe = candidateHasLunchGap(events);
+          if (filterUnsafeLunchCandidates && !lunchSafe) continue;
           const signature = candidateSignature(candidate);
           const equivalenceKey = candidateItems(candidate)
             .map(item => `${optionType(item)}:${optionMeetings(item)
@@ -1200,7 +1279,6 @@
           // smallest section signature so deduplication cannot change the
           // stable tie contract or attendance/component shape.
           if (previous && compareStrings(previous.signature, signature) <= 0) continue;
-          const events = candidateEventList(candidate);
           for (const meeting of events) {
             if (meeting.end > meeting.start) {
               addBoundary(meeting.day, meeting.start);
@@ -1212,6 +1290,7 @@
             plan: candidate,
             combo,
             signature,
+            lunchSafe,
             events,
             days: stats.days,
             sumStartMs: stats.sumStartMs,
@@ -1224,15 +1303,36 @@
         candidateSets.push({ course, candidates, possibleMasks: new Map() });
       }
 
+      // A candidate that overlaps a fixed lock from another course can never
+      // participate in a valid plan. Apply this cross-course lock filter once
+      // before the recursive search; locks in the candidate's own course are
+      // intentionally ignored because they were already validated together.
+      const lockedEventsByCode = new Map(normalizedPlans.map(course => [
+        course.code,
+        (course.locked || []).flatMap(lock => optionMeetings(lock), []),
+      ]));
+      for (const entry of candidateSets) {
+        const otherLockedEvents = [];
+        for (const [code, events] of lockedEventsByCode.entries()) {
+          if (code !== entry.course.code) otherLockedEvents.push(...events);
+        }
+        if (!otherLockedEvents.length) continue;
+        entry.candidates = entry.candidates.filter(candidate =>
+          !candidate.events.some(event =>
+            otherLockedEvents.some(lockedEvent => overlaps(event, lockedEvent)),
+          ));
+      }
+
       const noCandidate = candidateSets.find(entry => entry.candidates.length === 0);
       if (noCandidate) {
-        return Object.assign({}, base, {
+        if (filterUnsafeLunchCandidates) return retryWithAllLunchCandidates();
+        return finishResult(Object.assign({}, base, {
           diagnostics: Object.assign({}, diagnostics, {
             status: "NO_SOLUTION",
             reason: "NO_FEASIBLE_CANDIDATE",
             courseCode: noCandidate.course.code,
           }),
-        });
+        }));
       }
 
       const boundaryIndexes = new Map();
@@ -1293,6 +1393,13 @@
         compareNumbers(left.candidates.length, right.candidates.length) ||
         compareNumbers(right.conflictDegree, left.conflictDegree) ||
         compareStrings(left.course.code, right.course.code));
+      if (debugCallback) debugCallback({
+        phase: "candidate-sets",
+        counts: candidateSets.map(entry => ({
+          code: entry.course.code,
+          candidates: entry.candidates.length,
+        })),
+      });
 
       const dayBitMask = (days) => {
         let mask = 0;
@@ -1303,7 +1410,8 @@
         return mask >>> 0;
       };
 
-      for (const entry of candidateSets) {
+      for (let index = 0; index < candidateSets.length; index++) {
+        const entry = candidateSets[index];
         let minimumEnd = Infinity;
         let maximumStart = -Infinity;
         const dayMasks = new Set();
@@ -1315,6 +1423,45 @@
         entry.minimumEnd = minimumEnd;
         entry.maximumStart = maximumStart;
         entry.dayMasks = Array.from(dayMasks);
+        // Search inputs in the application are small enough for a numeric
+        // remaining-course mask. Keep a fallback for larger direct inputs.
+        entry.searchBit = candidateSets.length <= 30 ? 2 ** index : 0;
+      }
+
+      const subsetCacheEnabled = candidateSets.length <= 30;
+      const allRemainingMask = subsetCacheEnabled
+        ? (2 ** candidateSets.length) - 1 : 0;
+      const possibleMasksByRemaining = new Map([[0, new Map()]]);
+      const possibleMasksForRemaining = remainingMask => {
+        if (!subsetCacheEnabled) return null;
+        const cached = possibleMasksByRemaining.get(remainingMask);
+        if (cached) return cached;
+        const low = remainingMask & -remainingMask;
+        const entryIndex = Math.log2(low);
+        const previous = possibleMasksForRemaining(remainingMask - low);
+        const entry = candidateSets[entryIndex];
+        const result = new Map(previous);
+        for (const [day, mask] of entry.possibleMasks.entries())
+          result.set(day, (result.get(day) || 0n) | mask);
+        possibleMasksByRemaining.set(remainingMask, result);
+        return result;
+      };
+      const subsetTableEnabled = candidateSets.length <= 16;
+      const remainingSubsetCount = subsetTableEnabled ? 2 ** candidateSets.length : 0;
+      const minimumEndByRemaining = subsetTableEnabled
+        ? new Float64Array(remainingSubsetCount) : null;
+      const maximumStartByRemaining = subsetTableEnabled
+        ? new Float64Array(remainingSubsetCount) : null;
+      if (subsetTableEnabled) {
+        for (let mask = 1; mask < remainingSubsetCount; mask++) {
+          const low = mask & -mask;
+          const entryIndex = Math.log2(low);
+          const previous = mask - low;
+          minimumEndByRemaining[mask] =
+            minimumEndByRemaining[previous] + candidateSets[entryIndex].minimumEnd;
+          maximumStartByRemaining[mask] =
+            maximumStartByRemaining[previous] + candidateSets[entryIndex].maximumStart;
+        }
       }
 
       const popcount32 = (value) => {
@@ -1332,20 +1479,59 @@
        * Build an exact candidate bitset index for every elementary segment.
        * A posting word has one bit per candidate that occupies that segment;
        * OR-ing postings for the current occupancy produces the forbidden set.
-       * This keeps candidate availability exact while avoiding a full candidate
-       * scan for every remaining course at every partial search state.
+       * This is very fast for small domains, but materializing a target-course
+       * bitset for every candidate can itself be much more expensive than the
+       * search for a large real cache. Estimate that allocation first and use
+       * the equivalent occupancy-mask check on demand when it would exceed a
+       * bounded working-set budget.
        */
+      const totalCandidateCount = candidateSets.reduce((total, entry) =>
+        total + entry.candidates.length, 0);
+      const totalPostingWords = candidateSets.reduce((total, entry) =>
+        total + Math.ceil(entry.candidates.length / 32), 0);
+      const estimatedBlockedWords = candidateSets.reduce((total, entry) =>
+        total + entry.candidates.length * (totalPostingWords -
+          Math.ceil(entry.candidates.length / 32)), 0);
+      // Uint32 words are only part of the indexed representation; Maps and
+      // per-candidate typed arrays add substantial overhead. Keep this bound
+      // deliberately conservative so large cache inputs never spend minutes
+      // compiling an index that competes with the actual search for memory.
+      const MAX_INDEXED_BLOCKED_WORDS = 2_000_000;
+      const useIndexedAvailability = estimatedBlockedWords <= MAX_INDEXED_BLOCKED_WORDS;
+      const segmentTargetsByDay = useIndexedAvailability ? new Map() : null;
+      const addSegmentTarget = (day, segmentIndex, entry, posting) => {
+        let targetsBySegment = segmentTargetsByDay.get(day);
+        if (!targetsBySegment) {
+          targetsBySegment = [];
+          segmentTargetsByDay.set(day, targetsBySegment);
+        }
+        let targets = targetsBySegment[segmentIndex];
+        if (!targets) {
+          targets = [];
+          targetsBySegment[segmentIndex] = targets;
+        }
+        targets.push({ entry, posting });
+      };
+
       for (const entry of candidateSets) {
         const wordCount = Math.ceil(entry.candidates.length / 32);
+        entry.wordCount = wordCount;
+        entry.blockedCount = 0;
+        entry.blockedDepth = 0;
+        entry.selected = false;
+        for (const candidate of entry.candidates) candidate.ownerEntry = entry;
+        if (!useIndexedAvailability) continue;
+
         const allWords = new Uint32Array(wordCount);
         allWords.fill(0xffffffff);
         const remainder = entry.candidates.length % 32;
         if (remainder) allWords[wordCount - 1] = (2 ** remainder - 1) >>> 0;
-        entry.wordCount = wordCount;
         entry.allWords = allWords;
+        entry.blockedWords = new Uint32Array(wordCount);
         entry.postingsByDay = new Map();
         for (let candidateIndex = 0; candidateIndex < entry.candidates.length; candidateIndex++) {
           const candidate = entry.candidates[candidateIndex];
+          candidate.occupiedSegments = [];
           for (const [day, mask] of candidate.masks.entries()) {
             const boundary = boundaryIndexes.get(day);
             if (!boundary) continue;
@@ -1357,10 +1543,12 @@
             let remainingMask = mask;
             while (remainingMask !== 0n) {
               const segmentIndex = lowestSetBitIndex(remainingMask);
+              candidate.occupiedSegments.push({ day, segmentIndex });
               let posting = postings[segmentIndex];
               if (!posting) {
                 posting = new Uint32Array(wordCount);
                 postings[segmentIndex] = posting;
+                addSegmentTarget(day, segmentIndex, entry, posting);
               }
               const word = candidateIndex >>> 5;
               posting[word] |= (1 << (candidateIndex & 31));
@@ -1370,27 +1558,258 @@
         }
       }
 
+      if (useIndexedAvailability) {
+        // Collapse all occupied segments of one candidate into one posting
+        // union per target course. A candidate can occupy several elementary
+        // segments; applying their OR once avoids repeated word updates.
+        for (const entry of candidateSets) {
+          for (const candidate of entry.candidates) {
+            const updates = new Map();
+            for (const segment of candidate.occupiedSegments) {
+              const targetsBySegment = segmentTargetsByDay.get(segment.day);
+              const targets = targetsBySegment && targetsBySegment[segment.segmentIndex];
+              if (!targets) continue;
+              for (const target of targets) {
+                if (target.entry === entry) continue;
+                let words = updates.get(target.entry);
+                if (!words) {
+                  words = new Uint32Array(target.entry.wordCount);
+                  updates.set(target.entry, words);
+                }
+                for (let word = 0; word < target.entry.wordCount; word++)
+                  words[word] |= target.posting[word];
+              }
+            }
+            candidate.blockedUpdatesByEntry = updates;
+            candidate.occupiedSegments = null;
+          }
+        }
+        // The search uses the compiled candidate updates, not the construction
+        // postings. Release the temporary reverse index before traversal.
+        for (const entry of candidateSets) entry.postingsByDay = null;
+        segmentTargetsByDay.clear();
+      }
+      if (debugCallback) debugCallback({
+        phase: "candidate-availability",
+        mode: useIndexedAvailability ? "indexed" : "on-demand",
+        candidates: totalCandidateCount,
+        estimatedBlockedWords,
+      });
+
       const occupancy = new Map();
       const selected = [];
       const selectedDays = new Set();
+      let selectedDayMask = 0;
       const selectedBlocks = new Map();
       let selectedStartMs = 0;
       let selectedEndMs = 0;
-      let nodesVisited = 0;
+      let nodesVisited = searchCountOffset;
       let prunedNodes = 0;
       let bestPlan = null;
       let bestEvaluation = null;
       let bestObjective = null;
 
-      const currentLunchDeficit = () => {
+      /*
+       * The lunch bound is a monotone prefix value: adding a candidate can
+       * only increase the occupied union inside the lunch window.  Keep that
+       * union incrementally instead of rebuilding and sorting every selected
+       * meeting at every search state.  Intervals are copied on update, so the
+       * previous array can be restored directly by the LIFO backtracker.
+       */
+      const lunchEnabled = opts.lunch !== 0;
+      const lunchBlocks = new Map();
+      const lunchDayDeficits = new Map();
+      let selectedLunchDeficit = 0;
+
+      const lunchDeficitForBlocks = blocks => {
+        let occupied = 0;
+        for (const block of blocks) occupied += block.end - block.start;
+        const free = (LUNCH_END - LUNCH_START) - occupied;
+        return free < HOUR ? HOUR - free : 0;
+      };
+
+      const insertLunchBlock = (blocks, block) => {
+        const merged = [];
+        let start = block.start;
+        let end = block.end;
+        let inserted = false;
+        for (const existing of blocks) {
+          // Touching intervals belong to the same occupied union, matching
+          // mergeBlocks() and the evaluator's endpoint semantics.
+          if (existing.end < start) {
+            merged.push(existing);
+          } else if (end < existing.start) {
+            if (!inserted) {
+              merged.push({ start, end });
+              inserted = true;
+            }
+            merged.push(existing);
+          } else {
+            start = Math.min(start, existing.start);
+            end = Math.max(end, existing.end);
+          }
+        }
+        if (!inserted) merged.push({ start, end });
+        return merged;
+      };
+
+      const candidateLunchIntervals = candidate => {
+        const byDay = new Map();
+        for (const meeting of candidate.events) {
+          const start = Math.max(LUNCH_START, meeting.start);
+          const end = Math.min(LUNCH_END, meeting.end);
+          if (!(end > start)) continue;
+          if (!byDay.has(meeting.day)) byDay.set(meeting.day, []);
+          byDay.get(meeting.day).push({ start, end });
+        }
+        for (const [day, blocks] of byDay.entries())
+          byDay.set(day, mergeBlocks(blocks));
+        return byDay;
+      };
+
+      const intersectLunchBlocks = (left, right) => {
+        const result = [];
+        let leftIndex = 0;
+        let rightIndex = 0;
+        while (leftIndex < left.length && rightIndex < right.length) {
+          const start = Math.max(left[leftIndex].start, right[rightIndex].start);
+          const end = Math.min(left[leftIndex].end, right[rightIndex].end);
+          if (end > start) result.push({ start, end });
+          if (left[leftIndex].end < right[rightIndex].end) leftIndex++;
+          else rightIndex++;
+        }
+        return result;
+      };
+
+      const unionLunchMaps = (left, right) => {
+        const result = new Map(left);
+        for (const [day, blocks] of right.entries()) {
+          let merged = result.get(day) || [];
+          for (const block of blocks) merged = insertLunchBlock(merged, block);
+          if (merged.length) result.set(day, merged);
+        }
+        return result;
+      };
+
+      /*
+       * Every completion must occupy the intersection of the lunch intervals
+       * shared by all candidates of each remaining course.  Unioning those
+       * mandatory intervals with the selected prefix gives an admissible,
+       * substantially stronger lunch lower bound than the prefix alone.
+       */
+      const mandatoryLunchByEntry = new Map();
+      if (lunchEnabled) {
+        for (const entry of candidateSets) {
+          let mandatory = null;
+          for (const candidate of entry.candidates) {
+            candidate.lunchIntervals = candidateLunchIntervals(candidate);
+            if (mandatory === null) {
+              mandatory = new Map(candidate.lunchIntervals);
+              continue;
+            }
+            for (const day of Array.from(mandatory.keys())) {
+              const intersection = intersectLunchBlocks(
+                mandatory.get(day),
+                candidate.lunchIntervals.get(day) || [],
+              );
+              if (intersection.length) mandatory.set(day, intersection);
+              else mandatory.delete(day);
+            }
+          }
+          mandatoryLunchByEntry.set(entry, mandatory || new Map());
+        }
+      }
+      if (debugCallback) debugCallback({
+        phase: "mandatory-lunch",
+        entries: candidateSets.map(entry => {
+          const mandatory = mandatoryLunchByEntry.get(entry) || new Map();
+          return {
+            code: entry.course.code,
+            days: Array.from(mandatory.keys()),
+            blocks: Array.from(mandatory.values())
+              .reduce((total, blocks) => total + blocks.length, 0),
+          };
+        }),
+      });
+
+      const mandatoryLunchByRemaining = new Map([[0, new Map()]]);
+      const mandatoryLunchForRemaining = remainingMask => {
+        if (!lunchEnabled || !subsetCacheEnabled) return null;
+        const cached = mandatoryLunchByRemaining.get(remainingMask);
+        if (cached) return cached;
+        const low = remainingMask & -remainingMask;
+        const entryIndex = Math.log2(low);
+        const previous = mandatoryLunchForRemaining(remainingMask - low);
+        const entry = candidateSets[entryIndex];
+        const result = unionLunchMaps(previous, mandatoryLunchByEntry.get(entry));
+        mandatoryLunchByRemaining.set(remainingMask, result);
+        return result;
+      };
+
+      const mandatoryLunchFor = (remaining, remainingMask) => {
+        let mandatory = mandatoryLunchForRemaining(remainingMask);
+        if (!mandatory) {
+          mandatory = new Map();
+          for (const entry of remaining)
+            mandatory = unionLunchMaps(mandatory, mandatoryLunchByEntry.get(entry));
+        }
+        return mandatory;
+      };
+
+      const lunchLowerBound = (remaining, remainingMask) => {
+        if (!lunchEnabled) return 0;
+        const mandatory = mandatoryLunchFor(remaining, remainingMask);
+
+        const days = new Set(lunchBlocks.keys());
+        for (const day of mandatory.keys()) days.add(day);
         let deficit = 0;
-        for (const blocks of selectedBlocks.values()) {
-          const free = (LUNCH_END - LUNCH_START) -
-            mergedOccupiedMs(blocks, LUNCH_START, LUNCH_END);
-          if (free < HOUR) deficit += HOUR - free;
+        for (const day of days) {
+          let blocks = lunchBlocks.get(day) || [];
+          for (const block of mandatory.get(day) || [])
+            blocks = insertLunchBlock(blocks, block);
+          deficit += lunchDeficitForBlocks(blocks);
         }
         return deficit;
       };
+
+      const addLunchState = candidate => {
+        const previous = {
+          lunchDeficit: selectedLunchDeficit,
+          days: [],
+        };
+        if (!lunchEnabled) return previous;
+
+        const savedDays = new Set();
+        for (const meeting of candidate.events) {
+          const start = Math.max(LUNCH_START, meeting.start);
+          const end = Math.min(LUNCH_END, meeting.end);
+          if (!(end > start)) continue;
+
+          const day = meeting.day;
+          if (!savedDays.has(day)) {
+            savedDays.add(day);
+            previous.days.push({
+              day,
+              hadBlocks: lunchBlocks.has(day),
+              blocks: lunchBlocks.get(day),
+              hadDeficit: lunchDayDeficits.has(day),
+              deficit: lunchDayDeficits.get(day),
+            });
+          }
+
+          const blocks = lunchBlocks.get(day) || [];
+          const merged = insertLunchBlock(blocks, { start, end });
+          const oldDeficit = lunchDayDeficits.get(day) || 0;
+          const newDeficit = lunchDeficitForBlocks(merged);
+          lunchBlocks.set(day, merged);
+          if (newDeficit) lunchDayDeficits.set(day, newDeficit);
+          else lunchDayDeficits.delete(day);
+          selectedLunchDeficit += newDeficit - oldDeficit;
+        }
+        return previous;
+      };
+
+      const currentLunchDeficit = () => selectedLunchDeficit;
 
       const gapsForMask = (day, mask) => {
         if (mask === 0n) return 0;
@@ -1425,13 +1844,14 @@
         return span & ~mask;
       };
 
-      const minimumActiveDayCount = (remaining) => {
-        let selectedMask = 0;
-        for (const day of selectedDays) {
-          const number = Number(day);
-          if (number >= 1 && number <= 30) selectedMask |= 1 << (number - 1);
+      const possibleDayMasksByRemaining = new Map();
+      const possibleDayMasksForRemaining = (remaining, remainingMask) => {
+        if (subsetCacheEnabled) {
+          const cached = possibleDayMasksByRemaining.get(remainingMask);
+          if (cached) return cached;
         }
-        let unions = new Set([selectedMask >>> 0]);
+
+        let unions = new Set([0]);
         for (const entry of remaining) {
           const next = new Set();
           for (const current of unions) {
@@ -1440,9 +1860,36 @@
           }
           unions = next;
         }
+        if (subsetCacheEnabled) possibleDayMasksByRemaining.set(remainingMask, unions);
+        return unions;
+      };
+
+      const minimumActiveDayCount = (remaining, remainingMask) => {
+        const unions = possibleDayMasksForRemaining(remaining, remainingMask);
+        const mandatory = lunchEnabled
+          ? mandatoryLunchFor(remaining, remainingMask)
+          : null;
         let minimum = Infinity;
-        for (const mask of unions) {
-          let value = mask >>> 0;
+        for (const remainingMaskValue of unions) {
+          const mask = (selectedDayMask | remainingMaskValue) >>> 0;
+          if (mandatory) {
+            let lunchPossible = true;
+            for (const day of allBoundaries.keys()) {
+              const number = Number(day);
+              if (number < 1 || number > 30 ||
+                (mask & (1 << (number - 1))) === 0) continue;
+              let blocks = lunchBlocks.get(day) || [];
+              for (const block of mandatory.get(day) || [])
+                blocks = insertLunchBlock(blocks, block);
+              if (lunchDeficitForBlocks(blocks) > 0) {
+                lunchPossible = false;
+                break;
+              }
+            }
+            if (!lunchPossible) continue;
+          }
+
+          let value = mask;
           let count = 0;
           while (value) {
             value = (value & (value - 1)) >>> 0;
@@ -1461,28 +1908,39 @@
        * ignored here. The result is an optimistic (never too high) campus
        * value and remains admissible for branch-and-bound.
        */
-      const optimisticCampusMs = (remaining) => {
+      const optimisticCampusMs = (remaining, remainingMask) => {
         let gaps = 0;
+        const possibleForRemaining = possibleMasksForRemaining(remainingMask);
         for (const day of selectedDays) {
           const current = occupancy.get(day) || 0n;
           if (current === 0n) continue;
           let possible = current;
-          for (const entry of remaining)
-            possible |= entry.possibleMasks.get(day) || 0n;
+          if (possibleForRemaining) {
+            possible |= possibleForRemaining.get(day) || 0n;
+          } else {
+            for (const entry of remaining)
+              possible |= entry.possibleMasks.get(day) || 0n;
+          }
           const fillable = possible & gapMaskForOccupied(current);
           gaps += gapsForMask(day, current | fillable);
         }
-        return minimumActiveDayCount(remaining) * HOUR + gaps;
+        return minimumActiveDayCount(remaining, remainingMask) * HOUR + gaps;
       };
 
 
       // Candidate masks are built from every positive-duration event boundary,
-      // so the occupancy bitset is the exact positive-overlap predicate for
-      // every candidate that can reach this search. The postings index already
-      // excludes every mask-overlapping candidate; build one exact availability
-      // summary per recursive node and reuse it for that node's MRV choice.
+      // so an occupancy-mask intersection is the exact positive-overlap
+      // predicate for every candidate that can reach this search. Small inputs
+      // use the compiled blocked bitsets; large inputs check the same masks on
+      // demand so search setup stays bounded.
+      const blockedTrail = [];
       const addCandidate = (candidate) => {
         const previousMasks = [];
+        const blockedTrailMark = blockedTrail.length;
+        const previousDayMask = selectedDayMask;
+        const previousLunchState = addLunchState(candidate);
+        selectedDayMask |= dayBitMask(candidate.days);
+        candidate.ownerEntry.selected = true;
         for (const [day, mask] of candidate.masks.entries()) {
           previousMasks.push({ day, had: occupancy.has(day), value: occupancy.get(day) });
           occupancy.set(day, (occupancy.get(day) || 0n) | mask);
@@ -1495,45 +1953,46 @@
         selectedStartMs += candidate.sumStartMs;
         selectedEndMs += candidate.sumEndMs;
         selected.push(candidate);
-        return { previousMasks };
+        return { previousMasks, blockedTrailMark, previousDayMask, previousLunchState };
       };
 
-      const availabilitySummary = (entry) => {
-        const blocked = new Uint32Array(entry.wordCount);
-        let blockedCount = 0;
-        for (const [day, occupiedMask] of occupancy.entries()) {
-          const postings = entry.postingsByDay.get(day);
-          if (!postings) continue;
-          let remainingMask = occupiedMask;
-          while (remainingMask !== 0n) {
-            const segmentIndex = lowestSetBitIndex(remainingMask);
-            const posting = postings[segmentIndex];
-            if (posting) {
-              for (let word = 0; word < entry.wordCount; word++) {
-                const previous = blocked[word];
-                const added = (posting[word] & ~previous) >>> 0;
-                if (!added) continue;
-                blocked[word] = (previous | posting[word]) >>> 0;
-                blockedCount += popcount32(added);
-              }
-            }
-            remainingMask &= remainingMask - 1n;
+      const ensureAvailable = (entry) => {
+        if (!useIndexedAvailability) return;
+        const targetDepth = selected.length;
+        if (entry.blockedDepth >= targetDepth) return;
+        const previousDepth = entry.blockedDepth;
+        const previousWords = entry.blockedWords.slice();
+        const previousCount = entry.blockedCount;
+        for (let depth = previousDepth; depth < targetDepth; depth++) {
+          const update = selected[depth].blockedUpdatesByEntry.get(entry);
+          if (!update) continue;
+          for (let word = 0; word < entry.wordCount; word++) {
+            const previous = entry.blockedWords[word];
+            const added = (update[word] & ~previous) >>> 0;
+            if (!added) continue;
+            entry.blockedWords[word] = (previous | update[word]) >>> 0;
+            entry.blockedCount += popcount32(added);
           }
         }
-        return {
-          blocked,
-          count: entry.candidates.length - blockedCount,
-        };
+        entry.blockedDepth = targetDepth;
+        blockedTrail.push({
+          entry,
+          words: previousWords,
+          count: previousCount,
+          depth: previousDepth,
+        });
       };
 
-      // Enumerate the allowed bitset in candidate-index order. The postings
-      // index is exact for all positive-duration candidate events, so an
-      // allowed bit is already a clash-free candidate.
-      const compatibleCandidates = (entry, summary) => {
+      // Enumerate candidates in stable candidate order. In on-demand mode the
+      // mask check is equivalent to the indexed forbidden-bit calculation.
+      const compatibleCandidates = (entry) => {
+        if (!useIndexedAvailability) {
+          return entry.candidates.filter(candidate =>
+            !masksOverlap(candidate.masks, occupancy));
+        }
         const result = [];
-        const availability = summary || availabilitySummary(entry);
         for (let word = 0; word < entry.wordCount; word++) {
-          let allowed = (entry.allWords[word] & ~availability.blocked[word]) >>> 0;
+          let allowed = (entry.allWords[word] & ~entry.blockedWords[word]) >>> 0;
           while (allowed) {
             const low = (allowed & -allowed) >>> 0;
             const bitIndex = 31 - Math.clz32(low);
@@ -1549,6 +2008,16 @@
         selected.pop();
         selectedStartMs -= candidate.sumStartMs;
         selectedEndMs -= candidate.sumEndMs;
+        selectedDayMask = previousState.previousDayMask;
+        const previousLunchState = previousState.previousLunchState;
+        selectedLunchDeficit = previousLunchState.lunchDeficit;
+        for (let index = previousLunchState.days.length - 1; index >= 0; index--) {
+          const previous = previousLunchState.days[index];
+          if (previous.hadBlocks) lunchBlocks.set(previous.day, previous.blocks);
+          else lunchBlocks.delete(previous.day);
+          if (previous.hadDeficit) lunchDayDeficits.set(previous.day, previous.deficit);
+          else lunchDayDeficits.delete(previous.day);
+        }
         for (let index = candidate.events.length - 1; index >= 0; index--) {
           const meeting = candidate.events[index];
           const blocks = selectedBlocks.get(meeting.day);
@@ -1563,6 +2032,13 @@
           if (previous.had) occupancy.set(previous.day, previous.value);
           else occupancy.delete(previous.day);
         }
+        while (blockedTrail.length > previousState.blockedTrailMark) {
+          const change = blockedTrail.pop();
+          change.entry.blockedWords.set(change.words);
+          change.entry.blockedCount = change.count;
+          change.entry.blockedDepth = change.depth;
+        }
+        candidate.ownerEntry.selected = false;
       };
 
       const compareObjectiveKeys = (left, right) => {
@@ -1575,18 +2051,40 @@
 
       const canUseBounds = opts.campus >= 0 && opts.lunch >= 0 &&
         opts.early >= 0 && opts.late >= 0;
-      const shouldPrune = (remaining, pruneEqual) => {
+      const activeDaysCanImprove = (baseMask, remaining, remainingMask) => {
+        if (!bestObjective || opts.campus <= 0 || opts.early || opts.late ||
+          (opts.lunch && bestObjective.lunchDeficitMs !== 0)) return true;
+        return Array.from(possibleDayMasksForRemaining(remaining, remainingMask))
+          .some(mask => opts.campus * popcount32((baseMask | mask) >>> 0) * HOUR <
+            bestObjective.combinedMs);
+      };
+      const shouldPrune = (remaining, pruneEqual, remainingMask = 0) => {
         if (!bestObjective || !canUseBounds) return false;
-        const lowerLunch = opts.lunch ? currentLunchDeficit() : 0;
+        // When the incumbent already has a feasible lunch and the objective
+        // contains only campus time, any strict improvement must use fewer
+        // active days than the incumbent's campus lower bound permits. Reject
+        // day masks that cannot improve before examining detailed gaps. This
+        // is especially effective for real first-year caches: a five-day
+        // incumbent reduces the proof search to the few possible four-day
+        // unions instead of traversing every five-day prefix.
+        if (pruneEqual && !activeDaysCanImprove(
+          selectedDayMask, remaining, remainingMask,
+        )) return true;
+        const lowerLunch = opts.lunch ? lunchLowerBound(remaining, remainingMask) : 0;
         if (opts.lunch && lowerLunch > bestObjective.lunchDeficitMs) return true;
         if (opts.lunch && lowerLunch < bestObjective.lunchDeficitMs) return false;
         let minimumRemainingEnd = 0;
         let maximumRemainingStart = 0;
-        for (const entry of remaining) {
-          minimumRemainingEnd += entry.minimumEnd;
-          maximumRemainingStart += entry.maximumStart;
+        if (subsetTableEnabled) {
+          minimumRemainingEnd = minimumEndByRemaining[remainingMask];
+          maximumRemainingStart = maximumStartByRemaining[remainingMask];
+        } else {
+          for (const entry of remaining) {
+            minimumRemainingEnd += entry.minimumEnd;
+            maximumRemainingStart += entry.maximumStart;
+          }
         }
-        const lowerCampus = optimisticCampusMs(remaining);
+        const lowerCampus = optimisticCampusMs(remaining, remainingMask);
         const lowerEnd = selectedEndMs + minimumRemainingEnd;
         const upperStart = selectedStartMs + maximumRemainingStart;
         const lowerCombined = opts.campus * lowerCampus +
@@ -1597,6 +2095,39 @@
         if (lowerCombined < bestObjective.combinedMs) return false;
         if (lowerCombined > bestObjective.combinedMs) return true;
         return pruneEqual;
+      };
+
+      const lunchPrefixExceedsIncumbent = () =>
+        lunchEnabled && bestObjective &&
+        selectedLunchDeficit > bestObjective.lunchDeficitMs;
+
+      const lunchCompatibleWithSelected = candidate => {
+        if (!lunchEnabled || !candidate.lunchIntervals || !bestObjective)
+          return true;
+        if (bestObjective.lunchDeficitMs === 0 && !candidate.lunchSafe)
+          return false;
+        if (bestObjective.lunchDeficitMs === 0) {
+          if (!candidate.lunchSafe) return false;
+          const days = new Set(selectedDays);
+          for (const day of candidate.days) days.add(day);
+          for (const day of days) {
+            let blocks = lunchBlocks.get(day) || [];
+            for (const interval of candidate.lunchIntervals.get(day) || [])
+              blocks = insertLunchBlock(blocks, interval);
+            if (lunchDeficitForBlocks(blocks) > 0) return false;
+          }
+          return true;
+        }
+        let deficit = selectedLunchDeficit;
+        for (const [day, intervals] of candidate.lunchIntervals.entries()) {
+          let blocks = lunchBlocks.get(day) || [];
+          for (const interval of intervals)
+            blocks = insertLunchBlock(blocks, interval);
+          const previous = lunchDayDeficits.get(day) || 0;
+          deficit += lunchDeficitForBlocks(blocks) - previous;
+          if (deficit > bestObjective.lunchDeficitMs) return false;
+        }
+        return deficit <= bestObjective.lunchDeficitMs;
       };
 
       const declaredOptionType = (option) => {
@@ -1658,49 +2189,52 @@
         return true;
       };
 
-      const chooseNext = (remaining, summaryFor) => {
+      const chooseNext = (remaining) => {
         const choices = [];
+        const useLunchFilter = lunchEnabled && !!bestObjective;
         for (const entry of remaining) {
-          const summary = summaryFor(entry);
-          if (!summary.count) return null;
-          choices.push({ entry, summary });
+          ensureAvailable(entry);
+          const geometricCount = entry.candidates.length - entry.blockedCount;
+          if (!geometricCount) return null;
+          let compatible = null;
+          let count = geometricCount;
+          if (useLunchFilter) {
+            compatible = compatibleCandidates(entry)
+              .filter(lunchCompatibleWithSelected);
+            count = compatible.length;
+            if (!count) return null;
+          }
+          choices.push({ entry, count, compatible });
         }
         choices.sort((left, right) =>
-          compareNumbers(left.summary.count, right.summary.count) ||
+          compareNumbers(left.count, right.count) ||
           compareNumbers(right.entry.conflictDegree, left.entry.conflictDegree) ||
           compareStrings(left.entry.course.code, right.entry.course.code));
         const choice = choices[0];
-        const compatible = compatibleCandidates(choice.entry, choice.summary);
+        const compatible = choice.compatible || compatibleCandidates(choice.entry);
         if (!compatible.length) return null;
         return { entry: choice.entry, compatible };
       };
 
-      /*
-       * Seed an incumbent with a deterministic greedy pass. The first exact
-       * traversal optimizes only the objective key, which lets it prune equal
-       * objective branches safely. A second lexicographic traversal then uses
-       * fixed course-code and candidate-signature order; its first optimum is
-       * therefore exactly the stable tie selected by comparePlans.
-       */
-      const greedySeed = () => {
-        const remaining = candidateSets.slice();
+      const partialCampusMs = () => {
+        let gaps = 0;
+        for (const [day, mask] of occupancy.entries())
+          gaps += gapsForMask(day, mask);
+        return selectedDays.size * HOUR + gaps;
+      };
+
+      const runGreedySeed = (
+        selectCandidate,
+        chooseChoice = chooseNext,
+        seedOrder = candidateSets,
+      ) => {
+        const remaining = seedOrder.slice();
         const added = [];
         while (remaining.length) {
-          const summaries = new Map();
-          const summaryFor = (entry) => {
-            let summary = summaries.get(entry);
-            if (!summary) {
-              summary = availabilitySummary(entry);
-              summaries.set(entry, summary);
-            }
-            return summary;
-          };
-          const choice = chooseNext(remaining, summaryFor);
+          const choice = chooseChoice(remaining);
           if (!choice) break;
-          // Reverse traversal is still deterministic and deliberately differs
-          // from the proof traversal, making the seed useful on first-fit
-          // schedules where the stable-first candidate is a dead end.
-          const candidate = choice.compatible[choice.compatible.length - 1];
+          const candidate = selectCandidate(choice, remaining);
+          if (!candidate) break;
           const previousMasks = addCandidate(candidate);
           added.push({ candidate, previousMasks });
           remaining.splice(remaining.indexOf(choice.entry), 1);
@@ -1710,9 +2244,13 @@
           const plan = selected.map(candidate => candidate.plan)
             .sort((left, right) => compareStrings(left.code, right.code));
           if (finalPlanInvariant(plan)) {
-            bestPlan = plan;
-            bestEvaluation = evaluatePlan(plan);
-            bestObjective = objectiveKey(bestEvaluation, opts);
+            const evaluation = evaluatePlan(plan);
+            const objective = objectiveKey(evaluation, opts);
+            if (!bestPlan || compareObjectiveKeys(objective, bestObjective) < 0) {
+              bestPlan = plan;
+              bestEvaluation = evaluation;
+              bestObjective = objective;
+            }
             seeded = true;
           }
         }
@@ -1721,20 +2259,190 @@
         return seeded;
       };
 
-      const searchOrder = [];
-      const visitObjective = (remaining) => {
-        nodesVisited++;
-        const summaries = new Map();
-        const summaryFor = (entry) => {
-          let summary = summaries.get(entry);
-          if (!summary) {
-            summary = availabilitySummary(entry);
-            summaries.set(entry, summary);
+      const refineLunchSeed = () => {
+        if (!bestPlan || !bestObjective) return false;
+        let improved = false;
+        for (let pass = 0; pass < 3; pass++) {
+          let passImproved = false;
+          for (const entry of candidateSets) {
+            const currentCode = String(entry.course.code);
+            const otherPlans = bestPlan.filter(plan =>
+              String(plan.code) !== currentCode);
+            let replacementPlan = null;
+            let replacementEvaluation = null;
+            let replacementObjective = null;
+            for (const candidate of entry.candidates) {
+              const plan = [candidate.plan, ...otherPlans];
+              if (!isClashFree(plan)) continue;
+              const evaluation = evaluatePlan(plan);
+              const objective = objectiveKey(evaluation, opts);
+              if (compareObjectiveKeys(objective, bestObjective) >= 0) continue;
+              if (!replacementObjective ||
+                compareObjectiveKeys(objective, replacementObjective) < 0) {
+                replacementPlan = plan;
+                replacementEvaluation = evaluation;
+                replacementObjective = objective;
+              }
+            }
+            if (!replacementPlan) continue;
+            bestPlan = replacementPlan.sort((left, right) =>
+              compareStrings(left.code, right.code));
+            bestEvaluation = replacementEvaluation;
+            bestObjective = replacementObjective;
+            passImproved = true;
+            improved = true;
           }
-          return summary;
-        };
+          if (!passImproved) break;
+        }
+        return improved;
+      };
 
-        if (shouldPrune(remaining, true)) {
+      const greedySeed = () => {
+        if (lunchEnabled) {
+          const lunchCandidateSelector = (choice, remaining) => {
+            const nextRemaining = remaining.filter(entry => entry !== choice.entry);
+            const nextRemainingMask = subsetCacheEnabled
+              ? remaining.reduce((mask, entry) => mask | entry.searchBit, 0) &
+              ~choice.entry.searchBit
+              : 0;
+            let selectedCandidate = null;
+            let selectedKey = null;
+            for (const candidate of choice.compatible) {
+              const previousMasks = addCandidate(candidate);
+              if (selectedLunchDeficit === 0) {
+                const key = [
+                  partialCampusMs(),
+                  optimisticCampusMs(nextRemaining, nextRemainingMask),
+                  candidate.signature,
+                ];
+                if (!selectedKey ||
+                  key[0] < selectedKey[0] ||
+                  (key[0] === selectedKey[0] && key[1] < selectedKey[1]) ||
+                  (key[0] === selectedKey[0] && key[1] === selectedKey[1] &&
+                    compareStrings(key[2], selectedKey[2]) < 0)) {
+                  selectedCandidate = candidate;
+                  selectedKey = key;
+                }
+              }
+              removeCandidate(candidate, previousMasks);
+            }
+            return selectedCandidate;
+          };
+          const fixedChoice = remaining => {
+            const entry = remaining[0];
+            ensureAvailable(entry);
+            const compatible = compatibleCandidates(entry);
+            return compatible.length ? { entry, compatible } : null;
+          };
+          const largestUnlocked = candidateSets
+            .filter(entry => !(entry.course.locked || []).length)
+            .slice().sort((left, right) =>
+              compareNumbers(right.candidates.length, left.candidates.length) ||
+              compareStrings(left.course.code, right.course.code))[0];
+          const lockedEntries = candidateSets
+            .filter(entry => (entry.course.locked || []).length);
+          const largestLocked = lockedEntries.slice().sort((left, right) =>
+            compareNumbers(right.candidates.length, left.candidates.length) ||
+            compareStrings(left.course.code, right.course.code))[0];
+          const heuristicSeedOrder = [
+            largestUnlocked,
+            ...lockedEntries.filter(entry => entry !== largestLocked)
+              .sort((left, right) =>
+                compareNumbers(right.candidates.length, left.candidates.length) ||
+                compareStrings(left.course.code, right.course.code)),
+            ...candidateSets.filter(entry => entry !== largestUnlocked &&
+              entry !== largestLocked && !(entry.course.locked || []).length)
+              .sort((left, right) =>
+                compareNumbers(left.candidates.length, right.candidates.length) ||
+                compareStrings(left.course.code, right.course.code)),
+            largestLocked,
+          ].filter(Boolean);
+          const lunchOrders = [
+            { order: candidateSets, choose: chooseNext },
+            {
+              order: candidateSets.slice().sort((left, right) =>
+                compareStrings(left.course.code, right.course.code)),
+              choose: fixedChoice,
+            },
+            {
+              order: candidateSets.slice().sort((left, right) =>
+                compareNumbers(right.candidates.length, left.candidates.length) ||
+                compareStrings(left.course.code, right.course.code)),
+              choose: fixedChoice,
+            },
+            {
+              order: candidateSets.slice().sort((left, right) =>
+                compareNumbers(
+                  (mandatoryLunchByEntry.get(right) || new Map()).size,
+                  (mandatoryLunchByEntry.get(left) || new Map()).size,
+                ) || compareNumbers(right.candidates.length, left.candidates.length) ||
+                compareStrings(left.course.code, right.course.code)),
+              choose: fixedChoice,
+            },
+          ];
+          if (heuristicSeedOrder.length === candidateSets.length)
+            lunchOrders.push({ order: heuristicSeedOrder, choose: fixedChoice });
+          let lunchSeeded = false;
+          for (const attempt of lunchOrders) {
+            if (runGreedySeed(
+              lunchCandidateSelector,
+              attempt.choose,
+              attempt.order,
+            )) {
+              lunchSeeded = true;
+              refineLunchSeed();
+            }
+          }
+          if (lunchSeeded) return true;
+        }
+
+        // Reverse traversal is still deterministic and deliberately differs
+        // from the proof traversal, making the fallback useful on first-fit
+        // schedules where the stable-first candidate is a dead end.
+        const fallbackSeeded = runGreedySeed(choice =>
+          choice.compatible[choice.compatible.length - 1]);
+        if (lunchEnabled && fallbackSeeded)
+          refineLunchSeed();
+        return fallbackSeeded;
+      };
+
+      const searchOrder = [];
+      const objectiveStateMemo = new Set();
+      const objectiveStateKey = (remaining, remainingMask) => {
+        const remainingKey = subsetCacheEnabled
+          ? String(remainingMask)
+          : remaining.map(entry => entry.course.code).sort(compareStrings).join(",");
+        const occupancyKey = Array.from(occupancy.entries())
+          .sort((left, right) => compareNumbers(left[0], right[0]))
+          .map(([day, mask]) => `${day}:${mask.toString(16)}`)
+          .join(";");
+        const metricKey = opts.early || opts.late
+          ? `:${selectedStartMs}:${selectedEndMs}` : "";
+        return `${remainingKey}${metricKey}|${occupancyKey}`;
+      };
+      const visitObjective = (remaining, remainingMask) => {
+        nodesVisited++;
+        countSearchState();
+        const stateKey = objectiveStateKey(remaining, remainingMask);
+        if (objectiveStateMemo.has(stateKey)) {
+          prunedNodes++;
+          return;
+        }
+        objectiveStateMemo.add(stateKey);
+        if (debugCallback && nodesVisited <= 3) debugCallback({
+          phase: "objective-before-prune",
+          node: nodesVisited,
+          depth: selected.length,
+          remaining: remaining.map(entry => entry.course.code),
+        });
+
+        const objectivePruned = shouldPrune(remaining, true, remainingMask);
+        if (debugCallback && nodesVisited <= 3) debugCallback({
+          phase: "objective-after-prune",
+          node: nodesVisited,
+          pruned: objectivePruned,
+        });
+        if (objectivePruned) {
           prunedNodes++;
           return;
         }
@@ -1742,18 +2450,34 @@
           const plan = selected.map(candidate => candidate.plan)
             .sort((left, right) => compareStrings(left.code, right.code));
           if (!finalPlanInvariant(plan)) return;
+
           const evaluation = evaluatePlan(plan);
           const objective = objectiveKey(evaluation, opts);
-          if (!bestPlan || compareObjectiveKeys(objective, bestObjective) < 0) {
+          const improvedObjective = !bestPlan ||
+            compareObjectiveKeys(objective, bestObjective) < 0;
+          if (improvedObjective) {
             bestPlan = plan;
             bestEvaluation = evaluation;
             bestObjective = objective;
+            if (debugCallback) debugCallback({
+              phase: "objective-improved",
+              node: nodesVisited,
+              objective,
+            });
           }
           return;
         }
 
         // Dynamic MRV ordering remains the fast objective-search traversal.
-        const choice = chooseNext(remaining, summaryFor);
+        const choice = chooseNext(remaining);
+        if (debugCallback && nodesVisited <= 3) debugCallback({
+          phase: "objective-after-choice",
+          node: nodesVisited,
+          choice: choice && {
+            code: choice.entry.course.code,
+            compatible: choice.compatible.length,
+          },
+        });
         if (!choice) {
           prunedNodes++;
           return;
@@ -1761,34 +2485,127 @@
         if (!searchOrder.includes(choice.entry.course.code))
           searchOrder.push(choice.entry.course.code);
         const nextRemaining = remaining.filter(entry => entry !== choice.entry);
+        const nextRemainingMask = subsetCacheEnabled
+          ? remainingMask & ~choice.entry.searchBit : 0;
         for (const candidate of choice.compatible) {
+          if (!activeDaysCanImprove(
+            selectedDayMask | dayBitMask(candidate.days),
+            nextRemaining,
+            nextRemainingMask,
+          )) continue;
           const previousMasks = addCandidate(candidate);
-          visitObjective(nextRemaining);
+          if (!lunchPrefixExceedsIncumbent())
+            visitObjective(nextRemaining, nextRemainingMask);
           removeCandidate(candidate, previousMasks);
         }
       };
 
-      const seeded = greedySeed();
-      visitObjective(candidateSets.slice());
-
-      // With a proven objective value in hand, search in the same order as the
-      // canonical plan signature. Keeping objective equality and stopping at
-      // the first feasible optimum avoids enumerating every equal-cost tie.
+      // The cooperative branch below owns the greedy/objective/stable passes
+      // when requested. The synchronous path runs the same existing recursive
+      // traversal directly for maximum performance.
       const lexCandidateSets = candidateSets.slice().sort((left, right) =>
         compareStrings(left.course.code, right.course.code));
-      const visitStableTie = (remaining) => {
+      const visitCanonicalStableTie = (remaining, remainingMask) => {
         nodesVisited++;
-        const summaries = new Map();
-        const summaryFor = (entry) => {
-          let summary = summaries.get(entry);
-          if (!summary) {
-            summary = availabilitySummary(entry);
-            summaries.set(entry, summary);
-          }
-          return summary;
-        };
+        countSearchState();
 
-        if (shouldPrune(remaining, false)) {
+        if (shouldPrune(remaining, false, remainingMask)) {
+          prunedNodes++;
+          return false;
+        }
+        if (!remaining.length) {
+          const plan = selected.map(candidate => candidate.plan)
+            .sort((left, right) => compareStrings(left.code, right.code));
+          if (!finalPlanInvariant(plan)) return false;
+
+          const evaluation = evaluatePlan(plan);
+          const objective = objectiveKey(evaluation, opts);
+          if (compareObjectiveKeys(objective, bestObjective) !== 0) return false;
+          bestPlan = plan;
+          bestEvaluation = evaluation;
+          bestObjective = objective;
+          return true;
+        }
+
+        const entry = remaining[0];
+        ensureAvailable(entry);
+        if (entry.candidates.length - entry.blockedCount <= 0) {
+          prunedNodes++;
+          return false;
+        }
+        const compatible = compatibleCandidates(entry);
+        if (!compatible.length) {
+          prunedNodes++;
+          return false;
+        }
+        const nextRemaining = remaining.slice(1);
+        const nextRemainingMask = subsetCacheEnabled
+          ? remainingMask & ~entry.searchBit : 0;
+        for (const candidate of compatible) {
+          const previousMasks = addCandidate(candidate);
+          const found = visitCanonicalStableTie(nextRemaining, nextRemainingMask);
+          removeCandidate(candidate, previousMasks);
+          if (found) return true;
+        }
+        return false;
+      };
+
+      /*
+       * Lunch-enabled stable ties use the canonical course-code order only
+       * for choosing the prefix.  Once a prefix candidate is fixed, the
+       * remaining completion is a feasibility query and can use MRV ordering;
+       * its order cannot affect which prefix is lexicographically first.
+       * This preserves the stable result while avoiding the enormous fixed
+       * Cartesian traversal seen in the lunch-enabled case.
+       */
+      const lunchCompletionMemo = new Map();
+      const hasLunchObjectiveCompletionUncached = (remaining, remainingMask) => {
+        nodesVisited++;
+        countSearchState();
+
+        if (shouldPrune(remaining, false, remainingMask)) {
+          prunedNodes++;
+          return false;
+        }
+        if (!remaining.length) {
+          const plan = selected.map(candidate => candidate.plan)
+            .sort((left, right) => compareStrings(left.code, right.code));
+          if (!finalPlanInvariant(plan)) return false;
+          const evaluation = evaluatePlan(plan);
+          return compareObjectiveKeys(objectiveKey(evaluation, opts), bestObjective) === 0;
+        }
+
+        const choice = chooseNext(remaining);
+        if (!choice) {
+          prunedNodes++;
+          return false;
+        }
+        const nextRemaining = remaining.filter(entry => entry !== choice.entry);
+        const nextRemainingMask = subsetCacheEnabled
+          ? remainingMask & ~choice.entry.searchBit : 0;
+        for (const candidate of choice.compatible) {
+          const previousMasks = addCandidate(candidate);
+          const found = !lunchPrefixExceedsIncumbent() &&
+            hasLunchObjectiveCompletion(nextRemaining, nextRemainingMask);
+          removeCandidate(candidate, previousMasks);
+          if (found) return true;
+        }
+        return false;
+      };
+
+      const hasLunchObjectiveCompletion = (remaining, remainingMask) => {
+        const key = objectiveStateKey(remaining, remainingMask);
+        if (lunchCompletionMemo.has(key)) return lunchCompletionMemo.get(key);
+        const result = hasLunchObjectiveCompletionUncached(remaining, remainingMask);
+        lunchCompletionMemo.set(key, result);
+        return result;
+      };
+
+      const visitLunchStableTie = (remaining, remainingMask) => {
+        nodesVisited++;
+        countSearchState();
+
+        if (shouldPrune(remaining, false, remainingMask)) {
           prunedNodes++;
           return false;
         }
@@ -1806,56 +2623,439 @@
         }
 
         const entry = remaining[0];
-        const summary = summaryFor(entry);
-        if (!summary.count) {
+        ensureAvailable(entry);
+        if (entry.candidates.length - entry.blockedCount <= 0) {
           prunedNodes++;
           return false;
         }
-        const compatible = compatibleCandidates(entry, summary);
+        const compatible = compatibleCandidates(entry);
         if (!compatible.length) {
           prunedNodes++;
           return false;
         }
         const nextRemaining = remaining.slice(1);
+        const nextRemainingMask = subsetCacheEnabled
+          ? remainingMask & ~entry.searchBit : 0;
         for (const candidate of compatible) {
           const previousMasks = addCandidate(candidate);
-          const found = visitStableTie(nextRemaining);
+          const feasible = !lunchPrefixExceedsIncumbent() &&
+            (nextRemaining.length === 0 ||
+              hasLunchObjectiveCompletion(nextRemaining, nextRemainingMask));
           removeCandidate(candidate, previousMasks);
+          if (!feasible) continue;
+
+          const committed = addCandidate(candidate);
+          const found = visitLunchStableTie(nextRemaining, nextRemainingMask);
+          removeCandidate(candidate, committed);
           if (found) return true;
         }
         return false;
       };
 
-      const stableTieFound = bestPlan ? visitStableTie(lexCandidateSets) : false;
-      const resultDiagnostics = Object.assign({}, diagnostics, {
-        nodesVisited,
-        prunedNodes,
-        seeded,
-        courseOrder: searchOrder,
-      });
-      if (!bestPlan) {
-        return Object.assign({}, base, {
+      let seeded = false;
+      const needsLunchFallback = () => filterUnsafeLunchCandidates &&
+        (!bestPlan || !bestObjective || bestObjective.lunchDeficitMs !== 0);
+      const finalizeSearch = () => {
+        const resultDiagnostics = Object.assign({}, diagnostics, {
           nodesVisited,
-          diagnostics: Object.assign(resultDiagnostics, {
-            status: "NO_SOLUTION",
-            reason: "NO_FEASIBLE_PLAN",
-          }),
+          prunedNodes,
+          seeded,
+          combinationsSearched,
+          courseOrder: searchOrder,
+        });
+        if (!bestPlan) {
+          return finishResult(Object.assign({}, base, {
+            nodesVisited,
+            combinationsSearched,
+            diagnostics: Object.assign(resultDiagnostics, {
+              status: "NO_SOLUTION",
+              reason: "NO_FEASIBLE_PLAN",
+            }),
+          }));
+        }
+
+        return finishResult({
+          plan: bestPlan,
+          status: "OPTIMAL",
+          complete: true,
+          optimal: true,
+          nodesVisited,
+          combinationsSearched,
+          evaluation: bestEvaluation,
+          objective: bestObjective,
+          score: scoreEvaluation(bestEvaluation, opts),
+          signature: planSignature(bestPlan),
+          options: opts,
+          diagnostics: resultDiagnostics,
+        });
+      };
+
+      const cooperativeSearch = !!(hooks && hooks.cooperative);
+      if (cooperativeSearch) {
+        const makeFrame = (remaining, remainingMask) => ({
+          remaining,
+          remainingMask,
+          entered: false,
+          compatible: null,
+          nextRemaining: null,
+          nextRemainingMask: 0,
+          index: 0,
+          active: null,
+        });
+
+        const objectiveTraversal = function* () {
+          const stack = [makeFrame(candidateSets.slice(), allRemainingMask)];
+          while (stack.length) {
+            const frame = stack[stack.length - 1];
+            if (frame.active) {
+              removeCandidate(frame.active.candidate, frame.active.state);
+              frame.active = null;
+            }
+            if (!frame.entered) {
+              frame.entered = true;
+              nodesVisited++;
+              countSearchState();
+              const stateKey = objectiveStateKey(frame.remaining, frame.remainingMask);
+              if (objectiveStateMemo.has(stateKey)) {
+                prunedNodes++;
+                stack.pop();
+                continue;
+              }
+              objectiveStateMemo.add(stateKey);
+              if (nodesVisited % 64 === 0) yield null;
+
+              if (shouldPrune(frame.remaining, true, frame.remainingMask)) {
+                prunedNodes++;
+                stack.pop();
+                continue;
+              }
+              if (!frame.remaining.length) {
+                const plan = selected.map(candidate => candidate.plan)
+                  .sort((left, right) => compareStrings(left.code, right.code));
+                if (finalPlanInvariant(plan)) {
+                  const evaluation = evaluatePlan(plan);
+                  const objective = objectiveKey(evaluation, opts);
+                  if (!bestPlan || compareObjectiveKeys(objective, bestObjective) < 0) {
+                    bestPlan = plan;
+                    bestEvaluation = evaluation;
+                    bestObjective = objective;
+                  }
+                }
+                stack.pop();
+                continue;
+              }
+
+              const choice = chooseNext(frame.remaining);
+              if (!choice) {
+                prunedNodes++;
+                stack.pop();
+                continue;
+              }
+              if (!searchOrder.includes(choice.entry.course.code))
+                searchOrder.push(choice.entry.course.code);
+              frame.compatible = choice.compatible;
+              frame.nextRemaining = frame.remaining
+                .filter(entry => entry !== choice.entry);
+              frame.nextRemainingMask = subsetCacheEnabled
+                ? frame.remainingMask & ~choice.entry.searchBit : 0;
+            }
+
+            if (frame.index >= frame.compatible.length) {
+              stack.pop();
+              continue;
+            }
+            const candidate = frame.compatible[frame.index++];
+            if (!activeDaysCanImprove(
+              selectedDayMask | dayBitMask(candidate.days),
+              frame.nextRemaining,
+              frame.nextRemainingMask,
+            )) continue;
+            const state = addCandidate(candidate);
+            if (lunchPrefixExceedsIncumbent()) {
+              removeCandidate(candidate, state);
+              continue;
+            }
+            frame.active = {
+              candidate,
+              state,
+            };
+            stack.push(makeFrame(frame.nextRemaining, frame.nextRemainingMask));
+          }
+        };
+
+        const canonicalStableTraversal = function* () {
+          const stack = [makeFrame(lexCandidateSets, allRemainingMask)];
+          let found = false;
+          while (stack.length) {
+            const frame = stack[stack.length - 1];
+            if (frame.active) {
+              removeCandidate(frame.active.candidate, frame.active.state);
+              frame.active = null;
+            }
+            if (found) {
+              stack.pop();
+              continue;
+            }
+            if (!frame.entered) {
+              frame.entered = true;
+              nodesVisited++;
+              countSearchState();
+              if (nodesVisited % 64 === 0) yield null;
+
+              if (shouldPrune(frame.remaining, false, frame.remainingMask)) {
+                prunedNodes++;
+                stack.pop();
+                continue;
+              }
+              if (!frame.remaining.length) {
+                const plan = selected.map(candidate => candidate.plan)
+                  .sort((left, right) => compareStrings(left.code, right.code));
+                if (finalPlanInvariant(plan)) {
+                  const evaluation = evaluatePlan(plan);
+                  const objective = objectiveKey(evaluation, opts);
+                  if (compareObjectiveKeys(objective, bestObjective) === 0) {
+                    bestPlan = plan;
+                    bestEvaluation = evaluation;
+                    bestObjective = objective;
+                    found = true;
+                  }
+                }
+                stack.pop();
+                continue;
+              }
+
+              const entry = frame.remaining[0];
+              ensureAvailable(entry);
+              if (entry.candidates.length - entry.blockedCount <= 0) {
+                prunedNodes++;
+                stack.pop();
+                continue;
+              }
+              frame.compatible = compatibleCandidates(entry);
+              if (!frame.compatible.length) {
+                prunedNodes++;
+                stack.pop();
+                continue;
+              }
+              frame.nextRemaining = frame.remaining.slice(1);
+              frame.nextRemainingMask = subsetCacheEnabled
+                ? frame.remainingMask & ~entry.searchBit : 0;
+            }
+
+            if (frame.index >= frame.compatible.length) {
+              stack.pop();
+              continue;
+            }
+            const candidate = frame.compatible[frame.index++];
+            const state = addCandidate(candidate);
+            if (lunchPrefixExceedsIncumbent()) {
+              removeCandidate(candidate, state);
+              continue;
+            }
+            frame.active = {
+              candidate,
+              state,
+            };
+            stack.push(makeFrame(frame.nextRemaining, frame.nextRemainingMask));
+          }
+        };
+
+        const hasLunchObjectiveCompletionCooperative = function* (remaining, remainingMask) {
+          nodesVisited++;
+          countSearchState();
+          if (nodesVisited % 64 === 0) yield null;
+
+          if (shouldPrune(remaining, false, remainingMask)) {
+            prunedNodes++;
+            return false;
+          }
+          if (!remaining.length) {
+            const plan = selected.map(candidate => candidate.plan)
+              .sort((left, right) => compareStrings(left.code, right.code));
+            if (!finalPlanInvariant(plan)) return false;
+            const evaluation = evaluatePlan(plan);
+            return compareObjectiveKeys(objectiveKey(evaluation, opts), bestObjective) === 0;
+          }
+
+          const choice = chooseNext(remaining);
+          if (!choice) {
+            prunedNodes++;
+            return false;
+          }
+          const nextRemaining = remaining.filter(entry => entry !== choice.entry);
+          const nextRemainingMask = subsetCacheEnabled
+            ? remainingMask & ~choice.entry.searchBit : 0;
+          for (const candidate of choice.compatible) {
+            const previousMasks = addCandidate(candidate);
+            const found = !lunchPrefixExceedsIncumbent() &&
+              (yield* hasLunchObjectiveCompletionCooperative(
+                nextRemaining,
+                nextRemainingMask,
+              ));
+            removeCandidate(candidate, previousMasks);
+            if (found) return true;
+          }
+          return false;
+        };
+
+        const visitLunchStableTieCooperative = function* (remaining, remainingMask) {
+          nodesVisited++;
+          countSearchState();
+          if (nodesVisited % 64 === 0) yield null;
+
+          if (shouldPrune(remaining, false, remainingMask)) {
+            prunedNodes++;
+            return false;
+          }
+          if (!remaining.length) {
+            const plan = selected.map(candidate => candidate.plan)
+              .sort((left, right) => compareStrings(left.code, right.code));
+            if (!finalPlanInvariant(plan)) return false;
+            const evaluation = evaluatePlan(plan);
+            const objective = objectiveKey(evaluation, opts);
+            if (compareObjectiveKeys(objective, bestObjective) !== 0) return false;
+            bestPlan = plan;
+            bestEvaluation = evaluation;
+            bestObjective = objective;
+            return true;
+          }
+
+          const entry = remaining[0];
+          ensureAvailable(entry);
+          if (entry.candidates.length - entry.blockedCount <= 0) {
+            prunedNodes++;
+            return false;
+          }
+          const compatible = compatibleCandidates(entry);
+          if (!compatible.length) {
+            prunedNodes++;
+            return false;
+          }
+          const nextRemaining = remaining.slice(1);
+          const nextRemainingMask = subsetCacheEnabled
+            ? remainingMask & ~entry.searchBit : 0;
+          for (const candidate of compatible) {
+            const previousMasks = addCandidate(candidate);
+            const feasible = !lunchPrefixExceedsIncumbent() &&
+              (nextRemaining.length === 0 ||
+                (yield* hasLunchObjectiveCompletionCooperative(
+                  nextRemaining,
+                  nextRemainingMask,
+                )));
+            removeCandidate(candidate, previousMasks);
+            if (!feasible) continue;
+
+            const committed = addCandidate(candidate);
+            const found = yield* visitLunchStableTieCooperative(
+              nextRemaining,
+              nextRemainingMask,
+            );
+            removeCandidate(candidate, committed);
+            if (found) return true;
+          }
+          return false;
+        };
+
+        const stableTraversal = lunchEnabled
+          ? function* () {
+            yield* visitLunchStableTieCooperative(lexCandidateSets, allRemainingMask);
+          }
+          : canonicalStableTraversal;
+
+        const cooperativeRun = function* () {
+          seeded = greedySeed();
+          yield* objectiveTraversal();
+          if (bestPlan) yield* stableTraversal();
+          return needsLunchFallback()
+            ? { __retryAllLunchCandidates: true }
+            : finalizeSearch();
+        };
+        const iterator = cooperativeRun();
+        return new Promise((resolve, reject) => {
+          const fail = error => {
+            if (hooks && typeof hooks.onError === "function") hooks.onError(error);
+            reject(error);
+          };
+          const drive = () => {
+            if (hooks && typeof hooks.shouldContinue === "function" &&
+              !hooks.shouldContinue()) {
+              const error = new Error("Optimization canceled");
+              error.code = "OPTIMIZATION_CANCELED";
+              fail(error);
+              return;
+            }
+            try {
+              let yields = 0;
+              while (yields < 16) {
+                const next = iterator.next();
+                if (next.done) {
+                  if (next.value && next.value.__retryAllLunchCandidates) {
+                    try {
+                      const retry = retryWithAllLunchCandidates();
+                      if (retry && typeof retry.then === "function") {
+                        retry.then(resolve, reject);
+                      } else {
+                        if (hooks && typeof hooks.onComplete === "function")
+                          hooks.onComplete(retry);
+                        resolve(retry);
+                      }
+                    } catch (error) {
+                      fail(error);
+                    }
+                    return;
+                  }
+                  if (hooks && typeof hooks.onComplete === "function")
+                    hooks.onComplete(next.value);
+                  resolve(next.value);
+                  return;
+                }
+                yields++;
+              }
+            } catch (error) {
+              fail(error);
+              return;
+            }
+            const schedule = hooks && typeof hooks.schedule === "function"
+              ? hooks.schedule
+              : callback => setTimeout(callback, 0);
+            try {
+              const timer = schedule(drive);
+              if (hooks && typeof hooks.onSchedule === "function")
+                hooks.onSchedule(timer);
+            } catch (error) {
+              fail(error);
+            }
+          };
+          drive();
         });
       }
 
-      return {
-        plan: bestPlan,
-        status: "OPTIMAL",
-        complete: true,
-        optimal: true,
+      seeded = greedySeed();
+      if (debugCallback) debugCallback({
+        phase: "seed-done",
+        seeded,
+        bestObjective,
+        bestEvaluation,
+        seedSignature: bestPlan && planSignature(bestPlan),
+      });
+      visitObjective(candidateSets.slice(), allRemainingMask);
+      if (debugCallback) debugCallback({
+        phase: "objective-done",
         nodesVisited,
-        evaluation: bestEvaluation,
-        objective: bestObjective,
-        score: scoreEvaluation(bestEvaluation, opts),
-        signature: planSignature(bestPlan),
-        options: opts,
-        diagnostics: resultDiagnostics,
-      };
+        combinationsSearched,
+        bestObjective,
+      });
+
+      // With a proven objective value in hand, search in the same order as the
+      // canonical plan signature. Keeping objective equality and stopping at
+      // the first feasible optimum avoids enumerating every equal-cost tie.
+      const stableTieFound = bestPlan
+        ? (lunchEnabled
+          ? visitLunchStableTie(lexCandidateSets, allRemainingMask)
+          : visitCanonicalStableTie(lexCandidateSets, allRemainingMask))
+        : false;
+      if (needsLunchFallback()) return retryWithAllLunchCandidates();
+      return finalizeSearch();
     }
 
     return {

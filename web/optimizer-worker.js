@@ -37,7 +37,20 @@
       if (!shared || typeof shared.findBestPlan !== "function")
         throw new Error("shared optimizer module is unavailable");
 
-      const result = shared.findBestPlan(input.plans, input.options);
+      const result = shared.findBestPlan(input.plans, input.options, {
+        onProgress(progress) {
+          const combinationsSearched = Number(progress && progress.combinationsSearched);
+          root.postMessage({
+            type: "progress",
+            requestId: metadata.requestId,
+            generation: metadata.generation,
+            key: metadata.key,
+            combinationsSearched: Number.isFinite(combinationsSearched)
+              ? combinationsSearched : 0,
+            done: !!(progress && progress.done),
+          });
+        },
+      });
       // Only completed results cross the worker boundary. The page performs
       // its own renderer/input/objective validation before touching the DOM.
       if (!result || result.complete !== true || result.optimal !== true ||

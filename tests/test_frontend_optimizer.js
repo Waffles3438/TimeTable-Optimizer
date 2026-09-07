@@ -249,7 +249,20 @@ function makeInlinePageHarness(harnessOptions = {}) {
                 if (!shared || typeof shared.findBestPlan !== "function") {
                   throw new Error("shared optimizer unavailable in worker adapter");
                 }
-                const result = shared.findBestPlan(plans, opts);
+                const emitProgress = progress => {
+                  const data = {
+                    type: "progress",
+                    requestId: message.requestId,
+                    generation: message.generation,
+                    key: message.key,
+                    combinationsSearched: progress && progress.combinationsSearched,
+                    done: !!(progress && progress.done),
+                  };
+                  if (typeof this.onmessage === "function") this.onmessage({ data });
+                };
+                const result = shared.findBestPlan(plans, opts, {
+                  onProgress: emitProgress,
+                });
                 const data = Object.assign({}, result, {
                   result,
                   requestId: message.requestId,
@@ -841,6 +854,8 @@ function noSolutionPageViolations(observed) {
   if (observed.timetable !== "") violations.push("page retained a timetable after proven no-solution");
   if (!/Could not build a clash-free timetable/.test(observed.status))
     violations.push(`page did not show no-solution guidance: ${observed.status}`);
+  if (!/Searched \d+ combinations\.$/.test(observed.status))
+    violations.push(`page did not show searched-combination count: ${observed.status}`);
   return violations;
 }
 
@@ -1572,7 +1587,7 @@ test("preservation baseline: cache path, manifest, catalog, and legacy tracks re
   assert.match(html, /function comboKey\(program, year, session\)/);
   assert.match(html, /_memCache/);
   assert.match(html, /ttb:/);
-  assert.match(html, /<option value="electrical">ECE \(Electrical\)<\/option>/);
+  assert.match(html, /<option value="electrical">Electrical<\/option>/);
 
   const manifest = readJson("manifest.json");
   const combos = new Set((manifest.combos || []).map(combo =>
@@ -3365,7 +3380,7 @@ test("task 3.3: worker errors clear stale output and expose retry state", () => 
 });
 
 // **Validates: Requirements 2.1, 2.3, 2.5, 2.6, 3.1, 3.6, 3.7**
-test("task 3.3: no-worker fallback defers one complete exact result and renders no progress plan", () => {
+test("task 3.3: no-worker fallback defers a complete exact result and renders searched progress", () => {
   const page = task33SimplePage(false);
   const opts = { campus: 1, lunch: 0, early: 0, late: 0 };
   page.eventLoop.begin();
@@ -3376,6 +3391,11 @@ test("task 3.3: no-worker fallback defers one complete exact result and renders 
     "fallback must return to the event loop before the exact call");
   assert.equal(vm.runInContext("bestSoFar", page.context), null,
     "fallback must not expose an intermediate plan");
+  assert.equal(
+    vm.runInContext("document.getElementById('status').textContent", page.context),
+    "Searched 0 combinations…",
+    "fallback must expose the initial searched-combination status",
+  );
   page.eventLoop.end();
   page.eventLoop.flush();
 
@@ -3389,6 +3409,8 @@ test("task 3.3: no-worker fallback defers one complete exact result and renders 
   assert.equal(state.result.complete, true);
   assert.equal(state.result.optimal, true);
   assert.equal(state.result.status, "OPTIMAL");
+  assert.ok(state.result.combinationsSearched >= 1);
+  assert.match(state.status, /Searched \d+ combinations\.$/);
   assert.notEqual(state.timetable, "");
 });
 
@@ -3434,6 +3456,79 @@ test("task 3.5 property: generated domains cover every supported objective combi
     }
   }
   assert.equal(cases, 256, "every generated seed must cover all 16 objective combinations");
+});
+
+
+// **Validates the exact six-course Computer Year 1 Fall lock/exclusion case.**
+test("task 3.6 performance regression: locked Computer Fall search is exact and deterministic", async () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const raw = task35GetRaw("computer-1-fall.json");
+  const options = { campus: 1, lunch: 0, early: 0, late: 0 };
+  const plans = optimizer.buildCoursePlans(raw, {
+    locks: [
+      { code: "APS100H1", tm: "TUT", sec: "TUT0106" },
+      { code: "APS111H1", tm: "TUT", sec: "TUT0106" },
+      { code: "MAT188H1", tm: "PRA", sec: "PRA0103" },
+    ],
+    uselessTut: new Set(["APS110H1"]),
+  });
+
+  assert.equal(plans.length, raw.length);
+  assert.deepEqual(plans.map(course => course.code), [
+    "APS100H1", "APS110H1", "APS111H1", "CIV100H1", "MAT186H1", "MAT188H1",
+  ]);
+  assert.equal(plans.find(course => course.code === "APS100H1").locked.length, 1);
+  assert.equal(plans.find(course => course.code === "APS111H1").locked.length, 1);
+  assert.equal(plans.find(course => course.code === "MAT188H1").locked.length, 1);
+  assert.equal(plans.find(course => course.code === "APS110H1").poolTypes.includes("TUT"), false);
+
+  const synchronous = optimizer.findBestPlan(plans, options);
+  const repeated = optimizer.findBestPlan(plans, options);
+  assert.equal(synchronous.status, "OPTIMAL");
+  assert.equal(synchronous.complete, true);
+  assert.equal(synchronous.optimal, true);
+  assert.ok(synchronous.plan);
+  assert.equal(optimizer.isClashFree(synchronous.plan), true);
+  assert.equal(containsLockedMeetings(synchronous.plan, plans), true);
+  task35AssertRequiredComponents(optimizer, synchronous.plan, plans,
+    "locked Computer Fall performance regression");
+  task35AssertNoFallbackMetadata(synchronous, "locked Computer Fall performance regression");
+  assert.ok(synchronous.nodesVisited > 0);
+  assert.ok(synchronous.nodesVisited <= 1978114,
+    "locked Computer Fall search must stay within the established performance bound");
+  assert.equal(synchronous.combinationsSearched, synchronous.nodesVisited);
+  assert.equal(synchronous.diagnostics.combinationsSearched, synchronous.combinationsSearched);
+  assert.deepEqual(synchronous.objective, {
+    lunchDeficitMs: 0,
+    combinedMs: 4 * HOUR,
+    totalMs: 4 * HOUR,
+  });
+  assert.equal(synchronous.evaluation.activeDays, 4);
+  assert.equal(synchronous.evaluation.gapsMs, 0);
+  assert.equal(synchronous.signature, optimizer.planSignature(synchronous.plan));
+
+  assert.equal(repeated.status, synchronous.status);
+  assert.equal(repeated.signature, synchronous.signature,
+    "repeated locked searches must preserve the stable optimum");
+  assert.deepEqual(repeated.evaluation, synchronous.evaluation);
+  assert.deepEqual(repeated.objective, synchronous.objective);
+  assert.equal(repeated.nodesVisited, synchronous.nodesVisited);
+  assert.equal(repeated.combinationsSearched, synchronous.combinationsSearched);
+
+  const cooperative = await optimizer.findBestPlan(plans, options, {
+    cooperative: true,
+    schedule(callback) { callback(); },
+  });
+  assert.equal(cooperative.status, synchronous.status);
+  assert.equal(cooperative.complete, true);
+  assert.equal(cooperative.optimal, true);
+  assert.equal(cooperative.signature, synchronous.signature,
+    "fallback traversal must preserve the synchronous stable optimum");
+  assert.deepEqual(cooperative.evaluation, synchronous.evaluation);
+  assert.deepEqual(cooperative.objective, synchronous.objective);
+  assert.equal(cooperative.nodesVisited, synchronous.nodesVisited);
+  assert.equal(cooperative.combinationsSearched, synchronous.combinationsSearched);
 });
 
 
@@ -3531,15 +3626,36 @@ test("task 3.5 integration: the worker adapter forwards only complete terminal r
 
   const expected = optimizer.findBestPlan(plans, options);
   const successMessages = dispatch(optimizer, request);
-  assert.equal(successMessages.length, 1);
-  assert.equal(successMessages[0].type, "result");
-  assert.equal(successMessages[0].requestId, request.requestId);
-  assert.equal(successMessages[0].generation, request.generation);
-  assert.equal(successMessages[0].key, request.key);
-  assert.deepEqual(successMessages[0].result, expected);
-  task35AssertNoFallbackMetadata(successMessages[0].result, "worker success");
-  assert.equal(successMessages[0].result.complete, true);
-  assert.equal(successMessages[0].result.optimal, true);
+  const progressMessages = successMessages.filter(message => message.type === "progress");
+  const terminalMessages = successMessages.filter(message => message.type === "result");
+  assert.ok(progressMessages.length >= 1, "worker must forward search-state progress");
+  assert.equal(terminalMessages.length, 1);
+  for (let index = 1; index < progressMessages.length; index++) {
+    assert.ok(
+      progressMessages[index].combinationsSearched >=
+      progressMessages[index - 1].combinationsSearched,
+      "worker progress counts must be monotonic",
+    );
+  }
+  for (const message of progressMessages) {
+    assert.equal(message.requestId, request.requestId);
+    assert.equal(message.generation, request.generation);
+    assert.equal(message.key, request.key);
+    assert.equal(Object.prototype.hasOwnProperty.call(message, "result"), false);
+  }
+  const successMessage = terminalMessages[0];
+  assert.equal(successMessage.requestId, request.requestId);
+  assert.equal(successMessage.generation, request.generation);
+  assert.equal(successMessage.key, request.key);
+  assert.deepEqual(successMessage.result, expected);
+  assert.equal(
+    progressMessages[progressMessages.length - 1].combinationsSearched,
+    expected.combinationsSearched,
+    "worker final progress must match terminal searched count",
+  );
+  task35AssertNoFallbackMetadata(successMessage.result, "worker success");
+  assert.equal(successMessage.result.complete, true);
+  assert.equal(successMessage.result.optimal, true);
 
   const incompleteShared = {
     findBestPlan() {
@@ -3594,7 +3710,7 @@ test("task 3.5 page boundary: stale worker responses and changed inputs cannot r
     "a stale complete result must not enter cumulative state");
   assert.equal(vm.runInContext("document.getElementById('timetable').innerHTML", page.context), "",
     "a stale complete result must not render a timetable");
-  assert.match(vm.runInContext("document.getElementById('status').textContent", page.context), /Optimizing/,
+  assert.match(vm.runInContext("document.getElementById('status').textContent", page.context), /Searched 0 combinations/,
     "a stale worker error must not replace the current request status");
 
   page.eventLoop.flush();
@@ -3661,6 +3777,141 @@ test("task 3.5 static scope: production search paths have no legacy sampling or 
     "page fallback/worker path must call the shared exact solver");
   assert.match(pageSearchSource, /new WorkerConstructor\s*\(/,
     "page must retain the worker execution boundary");
-  assert.match(workerSource, /findBestPlan\(input\.plans, input\.options\)/,
+  assert.match(workerSource, /findBestPlan\(input\.plans, input\.options,/,
     "worker must delegate to the shared optimizer rather than duplicate search logic");
+});
+
+
+// ---------------------------------------------------------------------------
+// Search-state progress coverage (the UI still says combinations).
+
+// **Validates: recursive search-state counting and progress delivery.**
+test("search progress: counts visited search states and reports a terminal count", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+
+  const plans = [
+    choicePlan("PROGRESS-A", [
+      [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }],
+      [{ day: 2, start: 8 * HOUR, end: 9 * HOUR }],
+    ]),
+    choicePlan("PROGRESS-B", [
+      [{ day: 3, start: 10 * HOUR, end: 11 * HOUR }],
+      [{ day: 4, start: 10 * HOUR, end: 11 * HOUR }],
+    ]),
+  ];
+  const progress = [];
+  const result = optimizer.findBestPlan(plans, { campus: 1 }, {
+    onProgress(event) { progress.push(event); },
+  });
+
+  assert.equal(result.status, "OPTIMAL");
+  assert.equal(result.complete, true);
+  assert.ok(result.combinationsSearched >= 1);
+  assert.equal(result.combinationsSearched, result.nodesVisited,
+    "the compatibility-named count must equal visited search states");
+  assert.equal(result.combinationsSearched, result.diagnostics.combinationsSearched);
+  assert.ok(progress.length >= 2, "progress must include a first and terminal event");
+  assert.equal(progress[0].combinationsSearched, 1);
+  for (let index = 1; index < progress.length; index++) {
+    assert.ok(
+      progress[index].combinationsSearched >= progress[index - 1].combinationsSearched,
+      "progress counts must be monotonic",
+    );
+  }
+  const lastProgress = progress[progress.length - 1];
+  assert.equal(lastProgress.done, true);
+  assert.equal(lastProgress.combinationsSearched, result.combinationsSearched);
+
+  const overlapping = [
+    preservationCourse("PROGRESS-NO-A", [preservationSection("LEC1", "LEC", [
+      { day: 1, start: 9 * HOUR, end: 10 * HOUR },
+    ])]),
+    preservationCourse("PROGRESS-NO-B", [preservationSection("LEC1", "LEC", [
+      { day: 1, start: 9 * HOUR + HOUR / 2, end: 10 * HOUR + HOUR / 2 },
+    ])]),
+  ];
+  const noSolutionProgress = [];
+  const noSolution = optimizer.findBestPlan(
+    optimizer.buildCoursePlans(overlapping, {}),
+    { campus: 1 },
+    { onProgress(event) { noSolutionProgress.push(event); } },
+  );
+  assert.equal(noSolution.status, "NO_SOLUTION");
+  assert.ok(noSolution.combinationsSearched > 0);
+  assert.equal(noSolution.combinationsSearched, noSolution.nodesVisited,
+    "no-solution count must equal visited search states");
+  assert.equal(noSolution.combinationsSearched, noSolution.diagnostics.combinationsSearched);
+  assert.ok(noSolutionProgress.length >= 2,
+    "no-solution progress must include a first and terminal event");
+  assert.equal(noSolutionProgress[0].combinationsSearched, 1);
+  const noSolutionLastProgress = noSolutionProgress[noSolutionProgress.length - 1];
+  assert.equal(noSolutionLastProgress.done, true);
+  assert.equal(noSolutionLastProgress.combinationsSearched, noSolution.combinationsSearched);
+});
+
+// **Validates: page progress rendering and final Worker count propagation.**
+test("search progress: page displays live and final searched-combination text", () => {
+  const page = task33SimplePage(true);
+  const opts = { campus: 1, lunch: 0, early: 0, late: 0 };
+  task33TriggerOptimize(page, opts);
+
+  const initialStatus = vm.runInContext(
+    "document.getElementById('status').textContent",
+    page.context,
+  );
+  assert.equal(initialStatus, "Searched 0 combinations…");
+  assert.equal(vm.runInContext("bestSoFar", page.context), null,
+    "progress must not render an intermediate plan");
+
+  page.eventLoop.flush();
+  const state = vm.runInContext(`({
+    plan: bestSoFar,
+    result: bestSoFarResult,
+    status: document.getElementById("status").textContent,
+    timetable: document.getElementById("timetable").innerHTML,
+  })`, page.context);
+  assert.ok(state.plan);
+  assert.ok(state.result.combinationsSearched >= 1);
+  assert.match(state.status, /Built a timetable from/);
+  assert.match(state.status, /Searched \d+ combinations\.$/);
+  assert.notEqual(state.timetable, "");
+});
+
+
+// **Validates: cooperative fallback terminal equivalence.**
+test("search progress: cooperative exact execution matches synchronous results", async () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const plans = [
+    choicePlan("COOPERATIVE-A", [
+      [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }],
+      [{ day: 2, start: 8 * HOUR, end: 9 * HOUR }],
+    ]),
+    choicePlan("COOPERATIVE-B", [
+      [{ day: 3, start: 10 * HOUR, end: 11 * HOUR }],
+      [{ day: 4, start: 10 * HOUR, end: 11 * HOUR }],
+    ]),
+  ];
+  const options = { campus: 1, lunch: 0, early: 0, late: 0 };
+  const synchronous = optimizer.findBestPlan(plans, options);
+  const progress = [];
+  const cooperative = await optimizer.findBestPlan(plans, options, {
+    cooperative: true,
+    onProgress(event) { progress.push(event); },
+    schedule(callback) { callback(); },
+  });
+
+  assert.equal(cooperative.status, synchronous.status);
+  assert.equal(cooperative.complete, true);
+  assert.equal(cooperative.optimal, true);
+  assert.equal(cooperative.signature, synchronous.signature);
+  assert.deepEqual(cooperative.evaluation, synchronous.evaluation);
+  assert.deepEqual(cooperative.objective, synchronous.objective);
+  assert.equal(cooperative.combinationsSearched, synchronous.combinationsSearched);
+  assert.equal(progress[progress.length - 1].done, true);
+  assert.equal(
+    progress[progress.length - 1].combinationsSearched,
+    cooperative.combinationsSearched,
+  );
 });

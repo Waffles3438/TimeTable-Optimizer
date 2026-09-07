@@ -402,17 +402,17 @@
           <select id="selTrack">
             <!-- `computer` is the existing ECE/Computer cache ID; keep it so
                current second-year ECE behavior and links remain compatible. -->
-            <option value="computer" selected>ECE</option>
-            <option value="mechanical">Mech</option>
-            <option value="industrial">Indy</option>
-            <option value="chemical">Chem</option>
-            <option value="materials">MSE</option>
-            <option value="civil">Civ</option>
-            <option value="mineral">Min</option>
+            <option value="computer" selected>Computer</option>
+            <option value="mechanical">Mechanical</option>
+            <option value="industrial">Industrial</option>
+            <option value="chemical">Chemical</option>
+            <option value="materials">Material Science</option>
+            <option value="civil">Civil</option>
+            <option value="mineral">Mineral</option>
             <option value="trackone">Track One</option>
             <!-- Existing second-year ECE Electrical track. First-year data is
                intentionally the same common curriculum as ECE. -->
-            <option value="electrical">ECE (Electrical)</option>
+            <option value="electrical">Electrical</option>
           </select>
         </label>
         <label>Year
@@ -509,6 +509,39 @@
       try { worker.terminate(); } catch (e) { /* already terminated */ }
     }
 
+    function formatSearchedCombinations(value) {
+      const count = Number(value);
+      return Number.isFinite(count) && count >= 0
+        ? String(Math.floor(count))
+        : "0";
+    }
+
+    function searchedCombinationsText(value, suffix = "…") {
+      return `Searched ${formatSearchedCombinations(value)} combinations${suffix}`;
+    }
+
+    function requestSearchedCombinations(request, value) {
+      const next = Number(value);
+      if (!Number.isFinite(next) || next < 0) return request.searchedCombinations || 0;
+      request.searchedCombinations = Math.max(
+        request.searchedCombinations || 0,
+        Math.floor(next),
+      );
+      return request.searchedCombinations;
+    }
+
+    function isActiveOptimizationRequest(request) {
+      return activeOptimization === request &&
+        optimizationGeneration === request.generation;
+    }
+
+    function updateOptimizationProgress(request, value) {
+      if (!isActiveOptimizationRequest(request)) return;
+      const count = requestSearchedCombinations(request, value);
+      const status = document.getElementById("status");
+      if (status) status.textContent = searchedCombinationsText(count);
+    }
+
     function cancelOptimization() {
       optimizationGeneration += 1;
       const active = activeOptimization;
@@ -519,8 +552,14 @@
       }
       terminateOptimizationWorker(active.worker);
       const status = document.getElementById("status");
-      if (status && status.textContent === "Optimizing…")
+      if (status && active.searchedCombinations !== undefined &&
+        /^Searched \d+ combinations/.test(status.textContent)) {
+        status.textContent = `Optimization canceled. ${searchedCombinationsText(
+          active.searchedCombinations, ".",
+        )} Press Optimize to restart.`;
+      } else if (status && status.textContent === "Optimizing…") {
         status.textContent = "Optimization canceled. Press Optimize to restart.";
+      }
     }
 
     function clearBestSoFar() {
@@ -1205,7 +1244,7 @@
 
     // Shared renderer: builds the time-by-day grid from an already-chosen
     // clash-free plan and writes it into #timetable.
-    function renderPlan(plans, plan, msg) {
+    function renderPlan(plans, plan, msg, combinationsSearched) {
       const status = document.getElementById("status");
       const out = document.getElementById("timetable");
       // build a time-by-day grid: rows are 1-hour slots, from the earliest event
@@ -1286,7 +1325,10 @@
       html += "</tbody></table>";
       out.innerHTML = html;
       const lockedCount = plans.reduce((n, p) => n + p.locked.length, 0);
-      status.textContent = `Built a timetable from ${lockedCount} locked section(s) across ${plan.length} course(s). ${msg}`;
+      status.textContent = `Built a timetable from ${lockedCount} locked section(s) across ` +
+        `${plan.length} course(s). ${msg} ${searchedCombinationsText(
+          combinationsSearched, ".",
+        )}`;
     }
 
     function selectedOptimizationOptions() {
@@ -1306,8 +1348,7 @@
     }
 
     function currentOptimizationRequest(request) {
-      if (activeOptimization !== request ||
-        optimizationGeneration !== request.generation) return false;
+      if (!isActiveOptimizationRequest(request)) return false;
       try {
         const currentPlans = selectedPlan();
         const currentOptions = selectedOptimizationOptions();
@@ -1340,12 +1381,17 @@
       const status = document.getElementById("status");
       const info = document.getElementById("optInfo");
       if (out) out.innerHTML = "";
-      if (status) status.textContent = "Optimization failed. Press Optimize to retry.";
+      if (status) status.textContent = `Optimization failed. ${searchedCombinationsText(
+        request && request.searchedCombinations, ".",
+      )} Press Optimize to retry.`;
       if (info) info.textContent = optimizationErrorMessage(error);
     }
 
     function applyOptimizationResult(request, result) {
       if (!currentOptimizationRequest(request)) return;
+      requestSearchedCombinations(request,
+        result && result.combinationsSearched !== undefined
+          ? result.combinationsSearched : request.searchedCombinations);
       releaseOptimization(request);
 
       const plans = request.plans;
@@ -1363,7 +1409,9 @@
       if (!terminal) {
         if (bestSoFarKey !== request.key) clearBestSoFar();
         if (out) out.innerHTML = "";
-        if (status) status.textContent = "Optimization failed. Press Optimize to retry.";
+        if (status) status.textContent = `Optimization failed. ${searchedCombinationsText(
+          request.searchedCombinations, ".",
+        )} Press Optimize to retry.`;
         if (info) info.textContent = "The optimizer returned an incomplete result.";
         return;
       }
@@ -1374,7 +1422,9 @@
         if (!isCompleteNoSolutionResult(result)) {
           clearBestSoFar();
           if (out) out.innerHTML = "";
-          if (status) status.textContent = "Optimization failed. Press Optimize to retry.";
+          if (status) status.textContent = `Optimization failed. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )} Press Optimize to retry.`;
           if (info) info.textContent = "The optimizer returned an invalid no-solution result.";
           return;
         }
@@ -1382,7 +1432,9 @@
         if (out) out.innerHTML = "";
         if (status) status.textContent = "Could not build a clash-free timetable. Either two sections " +
           "you must attend overlap, or the remaining slots can't be filled without a clash. " +
-          "Check the sections you locked in.";
+          `Check the sections you locked in. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )}`;
         if (info) info.textContent = "";
         return;
       }
@@ -1397,7 +1449,9 @@
         if (out) out.innerHTML = "";
         if (status) status.textContent = "Could not build a clash-free timetable. Either two sections " +
           "you must attend overlap, or the remaining slots can't be filled without a clash. " +
-          "Check the sections you locked in.";
+          `Check the sections you locked in. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )}`;
         if (info) info.textContent = "";
         return;
       }
@@ -1421,20 +1475,34 @@
         if (out) out.innerHTML = "";
         if (status) status.textContent = "Could not build a clash-free timetable. Either two sections " +
           "you must attend overlap, or the remaining slots can't be filled without a clash. " +
-          "Check the sections you locked in.";
+          `Check the sections you locked in. ${searchedCombinationsText(
+            request.searchedCombinations, ".",
+          )}`;
         if (info) info.textContent = "";
         return;
       }
 
       const score = OPTIMIZER.scorePlan(bestSoFarResult.plan, opts);
       if (info) info.textContent = "optimized (penalty " + score + ")";
-      renderPlan(plans, bestSoFarResult.plan, "Click Optimize for another arrangement.");
+      renderPlan(
+        plans,
+        bestSoFarResult.plan,
+        "Click Optimize for another arrangement.",
+        request.searchedCombinations,
+      );
     }
 
     function receiveOptimizationMessage(request, data) {
-      if (!currentOptimizationRequest(request) || !data ||
+      if (!isActiveOptimizationRequest(request) || !data ||
         data.requestId !== request.requestId ||
         data.generation !== request.generation || data.key !== request.key) return;
+      if (data.type === "progress") {
+        updateOptimizationProgress(request, data.combinationsSearched);
+        return;
+      }
+      // Terminal messages still undergo the full input-key validation before
+      // they can clear state or render a timetable.
+      if (!currentOptimizationRequest(request)) return;
       if (data.type === "error" || (data.error && !data.result)) {
         showOptimizationError(request, data.error || data);
         return;
@@ -1448,16 +1516,40 @@
 
     function scheduleExactFallback(request) {
       const run = () => {
-        if (!currentOptimizationRequest(request)) return;
+        if (!isActiveOptimizationRequest(request)) return;
+        const applyCompleted = result => {
+          if (currentOptimizationRequest(request)) applyOptimizationResult(request, result);
+        };
+        const handleError = error => {
+          if (currentOptimizationRequest(request)) showOptimizationError(request, error);
+        };
         try {
-          // The fallback uses the identical synchronous shared solver and does
-          // not expose progress. Deferring the indivisible exact call gives the
-          // page one event-loop turn to paint/respond; workers are preferred for
-          // actual main-thread isolation whenever available.
-          const result = OPTIMIZER.findBestPlan(request.plans, request.opts);
-          applyOptimizationResult(request, result);
+          const result = OPTIMIZER.findBestPlan(request.plans, request.opts, {
+            cooperative: true,
+            onProgress(progress) {
+              updateOptimizationProgress(
+                request,
+                progress && progress.combinationsSearched,
+              );
+            },
+            shouldContinue() {
+              return isActiveOptimizationRequest(request);
+            },
+            schedule(callback) {
+              const timer = setTimeout(callback, 0);
+              request.timer = timer;
+              return timer;
+            },
+            onComplete: applyCompleted,
+            onError: handleError,
+          });
+          if (result && typeof result.then === "function") {
+            result.catch(handleError);
+          } else {
+            applyCompleted(result);
+          }
         } catch (error) {
-          showOptimizationError(request, error);
+          handleError(error);
         }
       };
       if (typeof setTimeout === "function") {
@@ -1481,12 +1573,14 @@
         plans,
         opts,
         worker: null,
+        timer: undefined,
+        searchedCombinations: 0,
       };
       activeOptimization = request;
 
       const status = document.getElementById("status");
       const info = document.getElementById("optInfo");
-      if (status) status.textContent = "Optimizing…";
+      if (status) status.textContent = searchedCombinationsText(0);
       if (info) info.textContent = "searching…";
 
       const WorkerConstructor = optimizationWorkerConstructor();

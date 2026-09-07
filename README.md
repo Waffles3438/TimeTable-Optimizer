@@ -6,16 +6,16 @@ Timetable Fixer loads U of T Engineering course sections and generates a clash-f
 
 The web selector supports first-year Fall and Winter data for:
 
-- ECE (`computer` cache ID)
-- Mech (`mechanical`)
-- Indy (`industrial`)
-- Chem (`chemical`)
-- MSE (`materials`)
-- Civ (`civil`)
-- Min (`mineral`)
+- Computer (`computer` cache ID)
+- Mechanical (`mechanical`)
+- Industrial (`industrial`)
+- Chemical (`chemical`)
+- Material Science (`materials`)
+- Civil (`civil`)
+- Mineral (`mineral`)
 - Track One (`trackone`)
 
-Track One uses the shared ECE/Computer first-year curriculum. The existing `electrical` cache ID remains available for the distinct second-year ECE Electrical track.
+Track One uses the shared Computer first-year curriculum. The existing `electrical` cache ID remains available for the distinct second-year Electrical track.
 
 ## Refreshing timetable data
 
