@@ -1,6 +1,54 @@
 {
   "combos": [
     {
+      "file": "chemical-1-fall.json",
+      "program": "chemical",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "chemical-1-winter.json",
+      "program": "chemical",
+      "year": "1",
+      "session": "winter"
+    },
+    {
+      "file": "chemical-2-fall.json",
+      "program": "chemical",
+      "year": "2",
+      "session": "fall"
+    },
+    {
+      "file": "chemical-2-winter.json",
+      "program": "chemical",
+      "year": "2",
+      "session": "winter"
+    },
+    {
+      "file": "civil-1-fall.json",
+      "program": "civil",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "civil-1-winter.json",
+      "program": "civil",
+      "year": "1",
+      "session": "winter"
+    },
+    {
+      "file": "civil-2-fall.json",
+      "program": "civil",
+      "year": "2",
+      "session": "fall"
+    },
+    {
+      "file": "civil-2-winter.json",
+      "program": "civil",
+      "year": "2",
+      "session": "winter"
+    },
+    {
       "file": "computer-1-fall.json",
       "program": "computer",
       "year": "1",
@@ -46,6 +94,114 @@
       "file": "electrical-2-winter.json",
       "program": "electrical",
       "year": "2",
+      "session": "winter"
+    },
+    {
+      "file": "industrial-1-fall.json",
+      "program": "industrial",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "industrial-1-winter.json",
+      "program": "industrial",
+      "year": "1",
+      "session": "winter"
+    },
+    {
+      "file": "industrial-2-fall.json",
+      "program": "industrial",
+      "year": "2",
+      "session": "fall"
+    },
+    {
+      "file": "industrial-2-winter.json",
+      "program": "industrial",
+      "year": "2",
+      "session": "winter"
+    },
+    {
+      "file": "materials-1-fall.json",
+      "program": "materials",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "materials-1-winter.json",
+      "program": "materials",
+      "year": "1",
+      "session": "winter"
+    },
+    {
+      "file": "materials-2-fall.json",
+      "program": "materials",
+      "year": "2",
+      "session": "fall"
+    },
+    {
+      "file": "materials-2-winter.json",
+      "program": "materials",
+      "year": "2",
+      "session": "winter"
+    },
+    {
+      "file": "mechanical-1-fall.json",
+      "program": "mechanical",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "mechanical-1-winter.json",
+      "program": "mechanical",
+      "year": "1",
+      "session": "winter"
+    },
+    {
+      "file": "mechanical-2-fall.json",
+      "program": "mechanical",
+      "year": "2",
+      "session": "fall"
+    },
+    {
+      "file": "mechanical-2-winter.json",
+      "program": "mechanical",
+      "year": "2",
+      "session": "winter"
+    },
+    {
+      "file": "mineral-1-fall.json",
+      "program": "mineral",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "mineral-1-winter.json",
+      "program": "mineral",
+      "year": "1",
+      "session": "winter"
+    },
+    {
+      "file": "mineral-2-fall.json",
+      "program": "mineral",
+      "year": "2",
+      "session": "fall"
+    },
+    {
+      "file": "mineral-2-winter.json",
+      "program": "mineral",
+      "year": "2",
+      "session": "winter"
+    },
+    {
+      "file": "trackone-1-fall.json",
+      "program": "trackone",
+      "year": "1",
+      "session": "fall"
+    },
+    {
+      "file": "trackone-1-winter.json",
+      "program": "trackone",
+      "year": "1",
       "session": "winter"
     }
   ]

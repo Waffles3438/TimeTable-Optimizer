@@ -7,20 +7,23 @@ it to courses.json, which the optimizer consumes.
     POST https://api.easi.utoronto.ca/ttb/getCourses
 
 Common flags:
-    --curriculum <track>  computer|electrical|ece  -> exact required courses
-                           scraped live from the academic calendar
-                           (computer->ECE297, electrical->ECE295)
-    --year <n>            e.g. 2    -> year level for --curriculum
+    --curriculum <program>  computer|electrical|mechanical|industrial|
+                            chemical|materials|civil|mineral|trackone
+                            -> exact required courses scraped live from the
+                            academic calendar
+    --year <n>              e.g. 1 or 2 -> year level for --curriculum
     --session fall|winter|both
-                          fall=<YYYY>9 (current Fall), winter=<YYYY+1>1 (current Winter);
-                          codes auto-derived from today's date (see active_sessions)
-    --department <code>   e.g. ece  -> matches course-code prefix (ECE)
-    --codes <c1> <c2>     keep exact course codes
-    --prefix <p1> <p2>    keep codes starting with any prefix
+                            fall=<YYYY>9 (current Fall), winter=<YYYY+1>1
+                            (current Winter); codes auto-derived from today's
+                            date (see active_sessions)
+    --department <code>     e.g. ece -> matches course-code prefix (ECE)
+    --codes <c1> <c2>       keep exact course codes
+    --prefix <p1> <p2>     keep codes starting with any prefix
 
 Examples:
     python scrape.py --curriculum computer --year 2
-    python scrape.py --curriculum electrical --year 2 --session fall
+    python scrape.py --curriculum mechanical --year 1 --session fall
+    python scrape.py --curriculum trackone --year 1 --session both
     python scrape.py --codes ECE201H1 MAT290H1
 """
 import argparse
@@ -31,6 +34,8 @@ import sys
 from collections import defaultdict
 
 import requests
+
+from curriculum import PROGRAM_IDS, get_program_courses
 
 API = "https://api.easi.utoronto.ca/ttb"
 HEADERS = {
@@ -120,21 +125,22 @@ DEPARTMENT_PREFIX = {
     "mat": "MAT",
 }
 
+
 def active_sessions(today=None):
     """Return the U of T session codes for the academic year that is *current*
     as of `today` (defaults to today's date).
 
     U of T session-code scheme:
       Fall YYYY   -> "<YYYY>9"   (e.g. Fall 2026 -> 20269)
-      Winter Y+1  -> "<Y+1>1"    (e.g. Winter 2027 -> 20271)
+      Winter Y+1  -> "<YYYY+1>1" (e.g. Winter 2027 -> 20271)
 
     The new academic year opens on July 1. A Fall session runs Sep-Dec and is
     the "current" one until Jan 31; a Winter session runs Jan-Apr and is current
     until Apr 30. So as soon as it is July 1 of year Y, we move to the Y -> Y+1
     academic year (Fall Y9, Winter (Y+1)1).
 
-    Returns {"fall": ["<fallCode>"], "winter": ["<winterCode>"]} so the rest of
-    the pipeline can stay unchanged.
+    Returns {"fall": ["<fallCode>"], "winter": ["<winterCode>"]} so the rest
+    of the pipeline can stay unchanged.
     """
     if today is None:
         today = datetime.date.today()
@@ -155,10 +161,16 @@ BOTH_SESSIONS = ["fall", "winter"]
 # Year -> course-level code used by the ttb API (year 1 = 100/A, year 2 = 200/B).
 YEAR_LEVEL = {"1": ["100/A"], "2": ["200/B"], "3": ["300/C"], "4": ["400/D"]}
 
+# Some Engineering curricula include courses taught outside the APSC division
+# (for example ESS courses in Mineral Engineering). Keep the normal request
+# narrow, then add this fallback division only when an exact curriculum code is
+# missing from the first response.
+CURRICULUM_FALLBACK_DIVISIONS = ("ARTSC",)
+
 
 def cached_filename(args):
     """Stable cache filename: <program>-<year>-<semester>.json
-    e.g. electrical-2-fall.json, none-1-winter.json."""
+    e.g. electrical-2-fall.json, trackone-1-winter.json."""
     year = args.year or "all"
     session = args.session or "both"
     track = args.curriculum or "none"
@@ -177,7 +189,8 @@ def save_cached(args, courses):
         json.dump(courses, f, indent=2)
     print(f"Cached {len(courses)} entries to {path}")
 
-    # refresh manifest of all cached combos
+    # Refresh manifest of all cached combos. Program IDs intentionally contain
+    # no hyphens, so the existing filename format remains unambiguous.
     combos = []
     for fn in sorted(os.listdir(data_dir)):
         if not fn.endswith(".json") or fn == "manifest.json":
@@ -201,11 +214,10 @@ def main():
     parser.add_argument("--department", default=None,
                         help="Department code, e.g. ece (maps to course-code prefix)")
     parser.add_argument("--year", default=None,
-                        help="Year level, e.g. 2 (maps to course-code level digit)")
-    parser.add_argument("--curriculum", default=None,
-                        choices=[ "computer", "electrical"],
-                        help="Pull exact required courses from the academic calendar "
-                             "(computer->ECE297, electrical->ECE295) e.g. --curriculum computer --year 2")
+                        help="Year level, e.g. 1 (maps to course-code level digit)")
+    parser.add_argument("--curriculum", default=None, choices=PROGRAM_IDS,
+                        help="Pull exact required courses from the academic calendar. "
+                             "Supported IDs: " + ", ".join(PROGRAM_IDS))
     parser.add_argument("--divisions", nargs="+", default=["APSC"],
                         help="Division codes, e.g. APSC")
     parser.add_argument("--levels", nargs="+", default=None,
@@ -257,12 +269,10 @@ def scrape_session(args, session):
     # --curriculum is given (no hardcoded course lists).
     curriculum_codes = None
     if args.curriculum:
-        from curriculum import get_program_courses
         if not args.year:
-            print("--curriculum requires --year (e.g. --year 2)", file=sys.stderr)
+            print("--curriculum requires --year (e.g. --year 1)", file=sys.stderr)
             sys.exit(1)
-        track = args.curriculum if args.curriculum in ("computer", "electrical") else None
-        prog = get_program_courses(args.curriculum, args.year, track=track)
+        prog = get_program_courses(args.curriculum, args.year)
         curriculum_codes = set(prog.get(session, []))
         if not curriculum_codes:
             print(f"No {args.year}-year courses found for '{args.curriculum}' "
@@ -276,12 +286,36 @@ def scrape_session(args, session):
     raw = fetch_courses(sessions, args.divisions, levels)
     print(f"  raw API entries: {len(raw)}")
 
+    if curriculum_codes:
+        available_codes = {str(course.get("code", "")).upper() for course in raw}
+        missing_codes = curriculum_codes - available_codes
+        if missing_codes:
+            fallback_divisions = list(dict.fromkeys(
+                [*args.divisions, *CURRICULUM_FALLBACK_DIVISIONS]
+            ))
+            if fallback_divisions != list(args.divisions):
+                print(
+                    "  missing curriculum codes; retrying with divisions "
+                    f"{fallback_divisions}: {', '.join(sorted(missing_codes))}"
+                )
+                raw = fetch_courses(sessions, fallback_divisions, levels)
+                print(f"  fallback API entries: {len(raw)}")
+
     courses = filter_by_prefix(raw, prefixes) if prefixes else raw
     if prefixes:
         print(f"  after prefix filter {prefixes}: {len(courses)} entries")
     if curriculum_codes:
         courses = filter_by_codes(courses, curriculum_codes)
         print(f"  after curriculum filter: {len(courses)} entries")
+        returned_codes = {str(course.get("code", "")).upper() for course in courses}
+        missing_codes = curriculum_codes - returned_codes
+        if missing_codes:
+            print(
+                "Curriculum courses were not returned by the timetable API: "
+                f"{', '.join(sorted(missing_codes))}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
     if args.codes:
         courses = filter_by_codes(courses, args.codes)
         print(f"  after codes filter {args.codes}: {len(courses)} entries")
@@ -308,8 +342,8 @@ def scrape_session(args, session):
             json.dump(courses, f, indent=2)
         print(f"Synced web/courses.json ({len(courses)} entries)")
 
-    # Also cache into web/data/<year>-<session>-<track>.json so the
-    # website can offer a year/semester/track picker without re-scraping.
+    # Also cache into web/data/<program>-<year>-<session>.json so the website
+    # can offer a program/year/semester picker without re-scraping.
     save_cached(args, courses)
 
 

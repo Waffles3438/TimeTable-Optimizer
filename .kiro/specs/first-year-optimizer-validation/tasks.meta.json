@@ -1,0 +1,231 @@
+{
+  "pbtResults": {
+    "1. Write the bug-condition exploration test before implementing the fix": {
+      "status": "passed",
+      "failingExample": "Expected exploration failures on unfixed F (node --test tests/test_frontend_optimizer.js): Computer/ECE Fall campus reproduction seed 0.1 observed campusMs=32400000 (activeDays=4, gapsMs=18000000) versus independent minimum campusMs=21600000 (activeDays=4, gapsMs=7200000), with 3993 feasible plans. Lunch synthetic observed CHOICE2 11:00–13:00, lunchDeficitMs=3600000, versus minimum CHOICE1 11:00–12:00, lunchDeficitMs=0. End-early synthetic observed CHOICE2 ending 14:00, sumEndHours=14, versus minimum CHOICE1 ending 12:00, sumEndHours=12. Start-late synthetic observed CHOICE2 starting 08:00, sumStartHours=8, versus minimum CHOICE1 starting 10:00, sumStartHours=10. MAT188H1 accepted active PRA0106/TUT0115 locks overlapping Monday 10:00–11:00 and returned a legacy array (complete=false) instead of {plan:null,status:\"NO_SOLUTION\",complete:true}. Coverage observation: firstYearMatrix=16, existing Python cache/shape tests execute no browser optimizer functions.",
+      "lastRunTimestamp": 1788657608477
+    },
+    "3.5 Complete Node unit, property-based, and integration coverage against the shared module": {
+      "status": "passed",
+      "lastRunTimestamp": 1788663563343
+    },
+    "3.8 Verify the original exploration test now passes as expected behavior": {
+      "status": "passed",
+      "failingExample": "",
+      "lastRunTimestamp": 1788663008900
+    }
+  },
+  "executionHistory": {
+    "1. Write the bug-condition exploration test before implementing the fix": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284371
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657292172
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657627296
+      }
+    ],
+    "2. Write preservation property tests before implementing the fix": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284597
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657633501
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657841005
+      }
+    ],
+    "3.1 Extract the pure browser/Node-shared optimizer module": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284653
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657847360
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788658114637
+      }
+    ],
+    "3.2 Build candidates and reject intra-course active-lock clashes before search": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284694
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788658120968
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788658310144
+      }
+    ],
+    "3.3 Make scoring and comparison one canonical deterministic contract": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284749
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788658317232
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788658470316
+      }
+    ],
+    "3.4 Replace randomized/time-limited `solveBest` with a complete deterministic search": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284793
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788658474762
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788660296043
+      }
+    ],
+    "3.5 Complete Node unit, property-based, and integration coverage against the shared module": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284830
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788660300648
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788660954074
+      }
+    ],
+    "3.6 Wire `optimizer.js` into `index.html` without changing page semantics": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284887
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788660959233
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788662013642
+      }
+    ],
+    "3.7 Integrate `bestSoFar` safely with complete results only": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657284938
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788662019229
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788662657759
+      }
+    ],
+    "3.8 Verify the original exploration test now passes as expected behavior": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657285010
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788662663916
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788663019269
+      }
+    ],
+    "3.9 Verify preservation tests still pass after the fix": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657285053
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788663025266
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788663300130
+      }
+    ],
+    "4. Checkpoint — run complete validation and confirm acceptance criteria": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788657285098
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788663309567
+      },
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788663677491
+      }
+    ],
+    "3. Implement exact optimizer behavior and browser integration": [
+      {
+        "executionId": "22413505-2f2b-484c-af86-b6480b618678",
+        "chatSessionId": "sess_5a3da7ff-249e-429e-9cdd-90632546daa9",
+        "timestamp": 1788663300267
+      }
+    ]
+  }
+}
