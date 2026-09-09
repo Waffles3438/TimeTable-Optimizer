@@ -30,6 +30,12 @@ function readJson(fileName) {
   return JSON.parse(fs.readFileSync(path.join(DATA_DIR, fileName), "utf8"));
 }
 
+function cloneForWorkerBoundary(value) {
+  if (typeof globalThis.structuredClone === "function")
+    return globalThis.structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
+
 function inlineScript() {
   const html = fs.readFileSync(INDEX, "utf8");
   const match = html.match(/<script>\s*([\s\S]*?)\s*<\/script>/);
@@ -38,37 +44,82 @@ function inlineScript() {
 }
 
 function makeElement(id) {
-  return {
+  let html = "";
+  const element = {
     id,
     value: "",
     checked: false,
     hidden: false,
     disabled: false,
-    innerHTML: "",
     textContent: "",
     options: [],
     selectedIndex: 0,
     selectedOptions: [],
     listeners: new Map(),
+    children: [],
+    parentNode: null,
+    dataset: {},
+    className: "",
     addEventListener(name, listener) {
       this.listeners.set(name, listener);
     },
-    querySelector() {
-      // The load/render observation harness does not parse HTML strings, but
-      // renderCourseList attaches a listener to generated tutorial inputs.
-      return makeElement(`${id}:query`);
+    querySelector(selector) {
+      return this.querySelectorAll(selector)[0] || makeElement(`${id}:query`);
     },
-    querySelectorAll() {
-      return [];
+    querySelectorAll(selector) {
+      const wanted = String(selector || "").trim();
+      const checkedOnly = wanted.endsWith(":checked");
+      const base = checkedOnly ? wanted.slice(0, -8) : wanted;
+      const matches = node => {
+        if (!node || !node.tagName && !node.className) return false;
+        const tag = base.match(/^([a-zA-Z][\w-]*)/);
+        if (tag && String(node.tagName || "").toLowerCase() !== tag[1].toLowerCase()) return false;
+        const classes = [...base.matchAll(/\.([a-zA-Z0-9_-]+)/g)].map(match => match[1]);
+        if (classes.some(name => !node.classList.contains(name))) return false;
+        const types = [...base.matchAll(/\[type=["']?([^\]"']+)["']?\]/g)].map(match => match[1]);
+        if (types.some(type => String(node.type || "").toLowerCase() !== type.toLowerCase())) return false;
+        return !checkedOnly || !!node.checked;
+      };
+      const result = [];
+      const visit = node => {
+        for (const child of node.children || []) {
+          if (matches(child)) result.push(child);
+          visit(child);
+        }
+      };
+      visit(this);
+      return result;
     },
-    appendChild() { },
-    setAttribute() { },
-    classList: {
-      contains() { return false; },
-      add() { },
-      remove() { },
+    appendChild(child) {
+      if (!child) return child;
+      this.children.push(child);
+      child.parentNode = this;
+      return child;
+    },
+    setAttribute(name, value) {
+      this[name] = String(value);
     },
   };
+  Object.defineProperty(element, "innerHTML", {
+    get() { return html; },
+    set(value) {
+      html = String(value == null ? "" : value);
+      element.children.length = 0;
+    },
+  });
+  element.classList = {
+    contains(name) {
+      return String(element.className || "").split(/\s+/).includes(String(name));
+    },
+    add(name) {
+      if (!this.contains(name)) element.className = `${element.className} ${name}`.trim();
+    },
+    remove(name) {
+      element.className = String(element.className || "").split(/\s+/)
+        .filter(value => value && value !== String(name)).join(" ");
+    },
+  };
+  return element;
 }
 
 function makeInlinePageHarness(harnessOptions = {}) {
@@ -134,7 +185,6 @@ function makeInlinePageHarness(harnessOptions = {}) {
     return elements.get(id);
   };
   const courseList = getElementById("courseList");
-  courseList.querySelectorAll = () => [];
 
   const document = {
     getElementById,
@@ -147,8 +197,6 @@ function makeInlinePageHarness(harnessOptions = {}) {
     createElement(tag) {
       const element = makeElement(tag);
       element.tagName = String(tag).toUpperCase();
-      element.dataset = {};
-      element.appendChild = () => { };
       return element;
     },
   };
@@ -364,6 +412,9 @@ function makeInlinePageHarness(harnessOptions = {}) {
     },
     selectedPlans() {
       return vm.runInContext("selectedPlan()", this.context);
+    },
+    renderCourses() {
+      return vm.runInContext("renderCourseList()", this.context);
     },
     setRandomSequence(values) {
       let cursor = 0;
@@ -1100,6 +1151,264 @@ function preservationSection(name, teachMethod, meetingValues) {
 function preservationCourse(code, sections) {
   return { code, name: code, sections };
 }
+
+test("Task 1: strict canonical instructor identity and section extraction", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available for canonical helpers");
+  assert.equal(
+    optimizer.canonicalInstructorIdentity({ firstName: " Ada \n  Lovelace ", lastName: "  Byron  " }),
+    "ada lovelace byron",
+  );
+  assert.equal(
+    optimizer.instructorIdentity({ givenName: "ADA", familyName: "LOVELACE" }),
+    "",
+    "legacy given/family aliases must not become instructor identities",
+  );
+  assert.equal(
+    optimizer.canonicalInstructorIdentity({
+      utorid: "  GHOPPER  ", firstName: "Grace", lastName: "Hopper",
+    }),
+    "grace hopper",
+    "stable identifiers must be ignored in favor of firstName + lastName",
+  );
+  assert.equal(optimizer.canonicalInstructorIdentity({ displayName: "Grace Hopper" }), "");
+  assert.equal(optimizer.canonicalInstructorIdentity({ firstName: "Ada" }), "");
+  assert.equal(optimizer.canonicalInstructorIdentity({ firstName: "  ", lastName: "Lovelace" }), "");
+  assert.equal(optimizer.canonicalInstructorIdentity("Ada Lovelace"), "");
+  assert.equal(optimizer.canonicalInstructorIdentity(null), "");
+  assert.equal(optimizer.canonicalInstructorIdentity({}), "");
+  assert.deepEqual(optimizer.canonicalPreferredInstructors(" ada   lovelace "), [
+    "ada lovelace",
+  ]);
+  assert.deepEqual(
+    optimizer.canonicalPreferredInstructors({ firstName: " Ada ", lastName: " Lovelace " }),
+    ["ada lovelace"],
+  );
+  assert.deepEqual(optimizer.canonicalPreferredInstructors([
+    "ada lovelace",
+    { firstName: " Grace ", lastName: " Hopper " },
+  ]), ["ada lovelace", "grace hopper"]);
+  assert.deepEqual(optimizer.canonicalPreferredInstructors({
+    displayName: "Grace Hopper",
+  }), []);
+  assert.deepEqual(optimizer.canonicalPreferredInstructors({
+    id: "ghopper",
+  }), []);
+  assert.deepEqual(optimizer.canonicalPreferredInstructors({
+    displayName: "Grace Hopper",
+    id: "ghopper",
+  }), []);
+
+  const lecture = {
+    name: "LEC0101",
+    teachMethod: "LEC",
+    instructors: [
+      { firstName: " Ada ", lastName: " Lovelace " },
+      { firstName: "Grace", lastName: "Hopper", email: "grace@example.test" },
+      { givenName: "ADA", familyName: "LOVELACE" },
+      { displayName: "Ignored Person" },
+      { utorid: "GHOPPER" },
+      null,
+    ],
+  };
+  const tutorial = {
+    name: "TUT0101",
+    teachMethod: "TUT",
+    instructor: { firstName: " Grace ", lastName: " Hopper " },
+    teachers: [{ firstName: "Alan", lastName: "Turing" }],
+    faculty: [{ firstName: "Katherine", lastName: "Johnson" }],
+  };
+  const course = { code: "CANON", sections: [lecture, tutorial] };
+
+  assert.deepEqual(optimizer.extractSections(course), [lecture, tutorial]);
+  assert.deepEqual(optimizer.extractSectionRecords(course), [lecture, tutorial]);
+  assert.deepEqual(optimizer.extractSections({ sec: lecture }), [lecture]);
+  assert.deepEqual(optimizer.extractSections({ section: tutorial }), [tutorial]);
+  assert.deepEqual(optimizer.extractSections({ code: "EMPTY" }), []);
+  assert.deepEqual(optimizer.extractSectionInstructors(lecture), [
+    "ada lovelace", "grace hopper",
+  ]);
+  assert.deepEqual(optimizer.sectionInstructors(course), [
+    "ada lovelace", "grace hopper",
+  ]);
+  assert.deepEqual(optimizer.extractSectionInstructors({ sec: tutorial }), []);
+  assert.deepEqual(optimizer.extractSectionInstructors({
+    name: "NON_ARRAY",
+    teachMethod: "TUT",
+    instructors: { firstName: "Grace", lastName: "Hopper" },
+  }), []);
+  assert.deepEqual(optimizer.extractSectionInstructors({
+    name: "MISSING",
+    teachMethod: "TUT",
+  }), []);
+});
+
+test("Task 2: lecture provenance remains aligned through normalization", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+
+  const first = preservationSection("LEC-A", "LEC", [
+    { day: 5, start: 8 * HOUR, end: 9 * HOUR },
+    { day: 6, start: 8 * HOUR, end: 9 * HOUR },
+  ]);
+  first.instructors = [{ firstName: " Ada ", lastName: " Lovelace " }];
+  const second = preservationSection("LEC-B", "LEC", [
+    { day: 1, start: 10 * HOUR, end: 11 * HOUR },
+    { day: 2, start: 10 * HOUR, end: 11 * HOUR },
+  ]);
+  second.instructors = [{ firstName: " Grace ", lastName: " Hopper " }];
+
+  const lectureOptions = optimizer.buildLecOptions([first, second]);
+  assert.equal(lectureOptions.length, 4,
+    "mixed multi-meeting lecture sources must retain all valid position choices");
+  const mixed = lectureOptions.find(option =>
+    option.lectureProvenance.map(entry => entry.sectionName).join(",") === "LEC-A,LEC-B");
+  assert.ok(mixed, "a candidate combining the two lecture sources must be retained");
+  assert.deepEqual(
+    mixed.ms.map(preservationMeetingKey),
+    mixed.lectureProvenance.map(entry => preservationMeetingKey(entry.meeting)),
+    "provenance must initially align one-for-one with ms",
+  );
+  assert.deepEqual(mixed.lectureProvenance.map(entry => entry.instructors), [
+    ["ada lovelace"], ["grace hopper"],
+  ]);
+
+  const normalizedPlans = optimizer.normalizePlanInput([{
+    code: "PROVENANCE",
+    name: "PROVENANCE",
+    preferredInstructors: [
+      { firstName: " ADA ", lastName: " LOVELACE " },
+      { firstName: "", lastName: "Invalid" },
+      " grace   hopper ",
+      { displayName: "Rejected Display Name" },
+    ],
+    poolTypes: ["LEC"],
+    combos: [[mixed]],
+  }]);
+  assert.deepEqual(normalizedPlans[0].preferredInstructors, ["ada lovelace", "grace hopper"]);
+  const normalized = normalizedPlans[0].combos[0][0];
+  assert.deepEqual(normalized.ms.map(preservationMeetingKey), [
+    "2:36000000:39600000", "5:28800000:32400000",
+  ], "normalization must sort meetings deterministically");
+  assert.deepEqual(normalized.secs, ["LEC-B", "LEC-A"],
+    "normalization must move section names with their meetings");
+  assert.deepEqual(normalized.lectureProvenance.map(entry => entry.sectionName), ["LEC-B", "LEC-A"]);
+  assert.deepEqual(normalized.lectureProvenance.map(entry => entry.instructors), [
+    ["grace hopper"], ["ada lovelace"],
+  ], "normalization must move instructor identities with their meetings");
+
+  const sameTimeAda = preservationSection("LEC-SAME", "LEC", [
+    { day: 3, start: 9 * HOUR, end: 10 * HOUR },
+  ]);
+  sameTimeAda.instructors = [{ firstName: "Ada", lastName: "Lovelace" }];
+  const sameTimeGrace = preservationSection("LEC-SAME", "LEC", [
+    { day: 3, start: 9 * HOUR, end: 10 * HOUR },
+  ]);
+  sameTimeGrace.instructors = [{ firstName: "Grace", lastName: "Hopper" }];
+  const sameTimeOptions = optimizer.buildLecOptions([sameTimeAda, sameTimeGrace]);
+  assert.equal(sameTimeOptions.length, 2,
+    "same-time lecture candidates with different instructors must not collapse");
+  assert.equal(new Set(sameTimeOptions.map(optimizer.optionSignature)).size, 2);
+  const sameTimePlans = optimizer.buildCoursePlans([{
+    code: "SAME-TIME",
+    sections: [sameTimeAda, sameTimeGrace],
+  }], {});
+  assert.equal(sameTimePlans[0].combos.length, 2,
+    "course construction must retain same-time different-instructor candidates");
+});
+
+function task4InstructorCourse(code = "INSTR") {
+  const lecture = preservationSection("LEC1", "LEC", [
+    { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+  ]);
+  lecture.instructors = [
+    { firstName: " Ada ", lastName: " Lovelace " },
+    { firstName: "ada", lastName: "lovelace" },
+    { firstName: " Grace ", lastName: "Hopper " },
+    { displayName: "Ignored tutorial-style record" },
+    { firstName: "Only", lastName: "" },
+  ];
+  const tutorial = preservationSection("TUT1", "TUT", [
+    { day: 1, start: 9 * HOUR, end: 10 * HOUR },
+  ]);
+  tutorial.instructors = [{ firstName: "Alan", lastName: "Turing" }];
+  return preservationCourse(code, [lecture, tutorial]);
+}
+
+function task4InstructorBoxes(page) {
+  return page.elements.get("courseList").querySelectorAll("input.lecInstructor");
+}
+
+function task4InstructorGroups(page) {
+  return page.elements.get("courseList").querySelectorAll(".lec-instructor-group");
+}
+
+test("Task 4: preferred instructor choices use only valid lecture records", () => {
+  const page = makeInlinePageHarness();
+  page.installCourses([task4InstructorCourse()]);
+  page.renderCourses();
+
+  const boxes = task4InstructorBoxes(page);
+  assert.deepEqual(boxes.map(box => box.dataset.instructor), [
+    "ada lovelace", "grace hopper",
+  ]);
+  assert.deepEqual(boxes.map(box => box.parentNode.children[1].textContent), [
+    "Ada Lovelace", "Grace Hopper",
+  ]);
+  assert.equal(task4InstructorGroups(page).length, 1);
+  assert.ok(boxes.every(box => !Object.prototype.hasOwnProperty.call(box.dataset, "tm") &&
+    !Object.prototype.hasOwnProperty.call(box.dataset, "sec")),
+  "instructor checkboxes must not carry section-lock metadata");
+});
+
+test("Task 4: missing or invalid lecture instructor data renders no group", () => {
+  const lecture = preservationSection("LEC1", "LEC", [
+    { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+  ]);
+  lecture.instructors = [
+    { firstName: "Only", lastName: "" },
+    { displayName: "Not a canonical instructor" },
+  ];
+  const page = makeInlinePageHarness();
+  page.installCourses([preservationCourse("NO-INSTRUCTOR", [lecture])]);
+  page.renderCourses();
+  assert.equal(task4InstructorGroups(page).length, 0);
+  assert.equal(task4InstructorBoxes(page).length, 0);
+});
+
+test("Task 4: preferences survive re-render and lecture exclusion without becoming locks", () => {
+  const page = makeInlinePageHarness();
+  page.installCourses([task4InstructorCourse()]);
+  page.renderCourses();
+
+  const first = task4InstructorBoxes(page)[0];
+  first.checked = true;
+  page.elements.get("courseList").onchange({ target: first });
+  assert.deepEqual(page.selectedPlans()[0].preferredInstructors, ["ada lovelace"]);
+  assert.equal(page.selectedPlans()[0].locked.length, 0,
+    "instructor checkboxes must not be interpreted as section locks");
+
+  page.renderCourses();
+  assert.equal(task4InstructorBoxes(page)[0].checked, true,
+    "normal course-list re-renders must preserve selected instructors");
+
+  vm.runInContext("uselessLec.add('INSTR'); renderCourseList()", page.context);
+  assert.equal(task4InstructorGroups(page)[0].hidden, true,
+    "the instructor group must hide while lectures are excluded");
+  assert.deepEqual(page.selectedPlans()[0].preferredInstructors, [],
+    "hidden preferences must be omitted from excluded lecture plans");
+
+  vm.runInContext("uselessLec.delete('INSTR'); renderCourseList()", page.context);
+  assert.equal(task4InstructorGroups(page)[0].hidden, false);
+  assert.equal(task4InstructorBoxes(page)[0].checked, true,
+    "unchecking lecture exclusion must restore retained preferences");
+  assert.deepEqual(page.selectedPlans()[0].preferredInstructors, ["ada lovelace"]);
+
+  vm.runInContext("resetOptimizerState(); renderCourseList()", page.context);
+  assert.equal(task4InstructorBoxes(page)[0].checked, false,
+    "a new catalog reset must clear instructor preferences");
+  assert.equal(vm.runInContext("preferredInstructorsByCode.size", page.context), 0);
+});
 
 function preservationMeetingKey(m) {
   return `${m.day}:${m.start}:${m.end}`;
@@ -3678,6 +3987,39 @@ test("task 3.5 integration: the worker adapter forwards only complete terminal r
   assert.equal(successMessage.result.complete, true);
   assert.equal(successMessage.result.optimal, true);
 
+  const workerPreferenceOption = task3AlignedPreferenceOption(
+    "WORKER-ADA", { day: 2, start: 9 * HOUR, end: 10 * HOUR }, [task3Ada],
+  );
+  const workerPreferencePlans = task3PreferencePlan(
+    "WORKER-PREFERENCE", [task3Ada], [workerPreferenceOption],
+  );
+  const workerPreferenceRequest = Object.assign({}, request, {
+    requestId: 18,
+    generation: 5,
+    key: "worker-preference-test-key",
+    input: { plans: workerPreferencePlans, options: task3None },
+  });
+  const preferenceMessages = dispatch(optimizer, workerPreferenceRequest);
+  const preferenceTerminal = preferenceMessages.find(message => message.type === "result");
+  assert.ok(preferenceTerminal, "preference worker fixture must produce a terminal result");
+  const clonedPreferenceResult = cloneForWorkerBoundary(preferenceTerminal.result);
+  assert.deepEqual(clonedPreferenceResult.plan[0].preferredInstructors, ["ada lovelace"]);
+  assert.deepEqual(
+    clonedPreferenceResult.plan[0].pick[0].lectureProvenance[0].instructors,
+    ["ada lovelace"],
+    "aligned lecture provenance must survive the worker clone",
+  );
+  assert.deepEqual(
+    optimizer.evaluatePlan(clonedPreferenceResult.plan),
+    preferenceTerminal.result.evaluation,
+  );
+  assert.deepEqual(
+    optimizer.objectiveKey(clonedPreferenceResult.evaluation, task3None),
+    preferenceTerminal.result.objective,
+  );
+  assert.equal(clonedPreferenceResult.evaluation.matchedCourseCount, 1);
+  assert.equal(clonedPreferenceResult.evaluation.missedCourseCount, 0);
+
   const incompleteShared = {
     findBestPlan() {
       return {
@@ -3767,6 +4109,53 @@ test("task 3.5 page boundary: stale worker responses and changed inputs cannot r
 
 
 // **Validates: Requirements 2.1, 2.2, 2.3, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8**
+test("task 3.5 page boundary: cloned legal candidates pass and fabricated candidates or invalid locks fail", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const page = task33SimplePage(false);
+  const plans = page.selectedPlans();
+  const options = { campus: 1, lunch: 0, early: 0, late: 0 };
+  const valid = optimizer.findBestPlan(plans, options);
+  assert.equal(valid.status, "OPTIMAL");
+
+  const accepts = (result, expectedPlans = plans) => {
+    page.context.__boundaryResult = result;
+    page.context.__boundaryPlans = expectedPlans;
+    page.context.__boundaryOptions = options;
+    return vm.runInContext(
+      "isCompleteOptimalPlanResult(__boundaryResult, __boundaryOptions, __boundaryPlans)",
+      page.context,
+    );
+  };
+
+  const cloned = cloneForWorkerBoundary(valid);
+  assert.equal(accepts(cloned), true,
+    "a legitimate current solver result must remain valid after structured cloning");
+
+  const forged = cloneForWorkerBoundary(valid);
+  const forgedItem = forged.plan[0].pick[0];
+  forgedItem.sec = { name: "FABRICATED", teachMethod: "TUT" };
+  forgedItem.tm = "TUT";
+  forgedItem.ms = [{ day: 2, start: 15 * HOUR, end: 16 * HOUR }];
+  forged.evaluation = optimizer.evaluatePlan(forged.plan);
+  forged.objective = optimizer.objectiveKey(forged.evaluation, options);
+  forged.score = optimizer.scorePlan(forged.plan, options);
+  forged.signature = optimizer.planSignature(forged.plan);
+  assert.equal(accepts(forged), false,
+    "a self-consistent but non-legal section/meeting candidate must be rejected");
+
+  const invalidExpected = cloneForWorkerBoundary(plans);
+  invalidExpected[0].invalidLocks = [{
+    invalid: true,
+    reason: "TEST_INVALID_LOCK",
+    tm: "TUT",
+    sectionName: "TUT1",
+  }];
+  assert.equal(accepts(cloned, invalidExpected), false,
+    "an optimal result must be rejected when the expected input has invalid locks");
+});
+
+
 test("task 3.5 static scope: production search paths have no legacy sampling or timeout results", () => {
   const optimizerSource = fs.readFileSync(path.join(ROOT, "web", "optimizer.js"), "utf8");
   const workerSource = fs.readFileSync(path.join(ROOT, "web", "optimizer-worker.js"), "utf8");
@@ -3935,4 +4324,401 @@ test("search progress: cooperative exact execution matches synchronous results",
     progress[progress.length - 1].combinationsSearched,
     cooperative.combinationsSearched,
   );
+});
+// ---------------------------------------------------------------------------
+// Task 3 instructor-preference objective coverage.
+
+function task3PreferenceOption(name, meetingValues, instructorRecords) {
+  const meetings = (Array.isArray(meetingValues) ? meetingValues : [meetingValues])
+    .map(meeting => ({ day: meeting.day, start: meeting.start, end: meeting.end }));
+  const sourceSection = {
+    name,
+    teachMethod: "LEC",
+    meetingTimes: meetings,
+    instructors: instructorRecords || [],
+  };
+  return {
+    lec: true,
+    sec: { name: "LEC*" },
+    ms: meetings,
+    secs: meetings.map(() => name),
+    lectureProvenance: meetings.map(meeting => ({
+      meeting,
+      sourceSection,
+      sectionName: name,
+    })),
+  };
+}
+
+function task3PreferencePlan(code, preferredInstructors, options) {
+  return [{
+    code,
+    name: code,
+    preferredInstructors,
+    locked: [],
+    poolTypes: ["LEC"],
+    combos: (options || []).map(option => [option]),
+  }];
+}
+
+const task3Ada = { firstName: "Ada", lastName: "Lovelace" };
+const task3Grace = { firstName: "Grace", lastName: "Hopper" };
+const task3None = { campus: 0, lunch: 0, early: 0, late: 0 };
+
+function task3AlignedPreferenceOption(name, meetingValues, instructorRecords) {
+  const option = task3PreferenceOption(name, meetingValues, instructorRecords);
+  const identities = (instructorRecords || []).map(record => {
+    if (!record || typeof record !== "object") return "";
+    const first = String(record.firstName || "").trim().replace(/\s+/g, " ").toLowerCase();
+    const last = String(record.lastName || "").trim().replace(/\s+/g, " ").toLowerCase();
+    return first && last ? `${first} ${last}` : "";
+  }).filter(Boolean);
+  option.lectureProvenance = option.lectureProvenance.map(entry => ({
+    ...entry,
+    instructors: identities.slice(),
+  }));
+  return option;
+}
+
+function task3OracleIdentity(value) {
+  if (typeof value === "string")
+    return value.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!value || typeof value !== "object") return "";
+  const first = String(value.firstName || "").trim().replace(/\s+/g, " ").toLowerCase();
+  const last = String(value.lastName || "").trim().replace(/\s+/g, " ").toLowerCase();
+  return first && last ? `${first} ${last}` : "";
+}
+
+function task3OraclePreferenceOutcome(course) {
+  const rawPreferred = Array.isArray(course && course.preferredInstructors)
+    ? course.preferredInstructors : [course && course.preferredInstructors];
+  const preferred = new Set(rawPreferred.map(task3OracleIdentity).filter(Boolean));
+  if (!preferred.size) return { active: false, matched: false, missed: 0 };
+
+  let hasKnownInstructor = false;
+  let matched = false;
+  for (const item of (course && course.pick) || []) {
+    if (!item || !item.lec) continue;
+    for (const entry of Array.isArray(item.lectureProvenance)
+      ? item.lectureProvenance : []) {
+      const rawInstructors = Array.isArray(entry.instructors)
+        ? entry.instructors
+        : (entry.sourceSection && Array.isArray(entry.sourceSection.instructors)
+          ? entry.sourceSection.instructors : []);
+      const identities = rawInstructors.map(task3OracleIdentity).filter(Boolean);
+      if (!identities.length) continue;
+      hasKnownInstructor = true;
+      if (identities.some(identity => preferred.has(identity))) matched = true;
+    }
+  }
+  return {
+    active: true,
+    matched,
+    missed: matched || !hasKnownInstructor ? 0 : 1,
+  };
+}
+
+function task3OracleEvaluate(plan) {
+  const schedule = evaluateReference(plan);
+  let preferredCourseCount = 0;
+  let matchedCourseCount = 0;
+  let missedCourseCount = 0;
+  for (const course of plan) {
+    const outcome = task3OraclePreferenceOutcome(course);
+    if (!outcome.active) continue;
+    preferredCourseCount++;
+    if (outcome.matched) matchedCourseCount++;
+    missedCourseCount += outcome.missed;
+  }
+  return Object.assign({}, schedule, {
+    preferredCourseCount,
+    matchedCourseCount,
+    missedCourseCount,
+  });
+}
+
+function task3OracleCompare(left, right, opts, leftSignature, rightSignature) {
+  if (opts.lunch && left.lunchDeficitMs !== right.lunchDeficitMs)
+    return left.lunchDeficitMs < right.lunchDeficitMs ? -1 : 1;
+  const leftSchedule = (opts.campus ? left.campusMs : 0) +
+    (opts.early ? left.sumEndMs : 0) - (opts.late ? left.sumStartMs : 0);
+  const rightSchedule = (opts.campus ? right.campusMs : 0) +
+    (opts.early ? right.sumEndMs : 0) - (opts.late ? right.sumStartMs : 0);
+  if (leftSchedule !== rightSchedule) return leftSchedule < rightSchedule ? -1 : 1;
+  if (left.missedCourseCount !== right.missedCourseCount)
+    return left.missedCourseCount < right.missedCourseCount ? -1 : 1;
+  return leftSignature === rightSignature ? 0 : leftSignature < rightSignature ? -1 : 1;
+}
+
+function task3PreferenceOracle(plans, opts, optimizer) {
+  const choices = plans.map(course => {
+    const combos = course.poolTypes && course.poolTypes.length ? course.combos : [[]];
+    return (combos || []).map(combo => ({
+      code: course.code,
+      name: course.name,
+      preferredInstructors: course.preferredInstructors,
+      pick: [...(course.locked || []), ...(Array.isArray(combo) ? combo : [])],
+    })).filter(candidate => planIsClashFree([candidate]));
+  });
+  const chosen = [];
+  let best = null;
+  let feasibleCount = 0;
+
+  function visit(index) {
+    if (index === choices.length) {
+      feasibleCount++;
+      const plan = chosen.map(candidate => ({ ...candidate, pick: candidate.pick.slice() }));
+      const evaluation = task3OracleEvaluate(plan);
+      const signature = optimizer.planSignature(plan);
+      if (!best || task3OracleCompare(
+        evaluation, best.evaluation, opts, signature, best.signature,
+      ) < 0) best = { plan, evaluation, signature };
+      return;
+    }
+    for (const candidate of choices[index]) {
+      const existing = eventList(chosen);
+      if (eventList([candidate]).some(event =>
+        existing.some(other => eventOverlap(event, other)))) continue;
+      chosen.push(candidate);
+      visit(index + 1);
+      chosen.pop();
+    }
+  }
+
+  visit(0);
+  if (!best) throw new Error("HARNESS FAILURE: preference oracle found no feasible plan");
+  return { ...best, feasibleCount };
+}
+
+
+test("Task 3: no preference deduplicates same-time lectures by events and keeps the stable minimum", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const sameTime = { day: 4, start: 9 * HOUR, end: 10 * HOUR };
+  const first = preservationSection("LEC-A", "LEC", [sameTime]);
+  first.instructors = [task3Ada];
+  const second = preservationSection("LEC-Z", "LEC", [sameTime]);
+  second.instructors = [task3Grace];
+  const plans = optimizer.buildCoursePlans([{
+    code: "EVENT-ONLY",
+    name: "EVENT-ONLY",
+    sections: [first, second],
+  }], {});
+  const result = optimizer.findBestPlan(plans, task3None);
+  assert.equal(result.status, "OPTIMAL");
+  assert.equal(result.plan[0].pick[0].lectureProvenance[0].sectionName, "LEC-A",
+    "the lexicographically smallest full candidate must survive event-only deduplication");
+  const legalSignatures = plans[0].combos.map(combo => optimizer.candidateSignature({
+    code: plans[0].code,
+    pick: combo,
+  })).sort();
+  assert.equal(optimizer.candidateSignature(result.plan[0]), legalSignatures[0]);
+  assert.equal(result.signature, optimizer.planSignature(result.plan));
+});
+
+
+test("Task 3: instructor preference oracle remains exact across all objective flags", async () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const prefPlans = [
+    task3PreferencePlan("ORACLE-A", [task3Ada], [
+      task3AlignedPreferenceOption("A-MISS", { day: 1, start: 9 * HOUR, end: 10 * HOUR }, [task3Grace]),
+      task3AlignedPreferenceOption("A-MATCH", { day: 1, start: 9 * HOUR, end: 10 * HOUR }, [task3Ada]),
+      task3AlignedPreferenceOption("A-UNKNOWN", { day: 1, start: 11 * HOUR, end: 13 * HOUR }, [
+        { displayName: "Unknown Instructor" },
+      ]),
+    ])[0],
+    task3PreferencePlan("ORACLE-B", [task3Grace], [
+      task3AlignedPreferenceOption("B-MISS", { day: 2, start: 9 * HOUR, end: 10 * HOUR }, [task3Ada]),
+      task3AlignedPreferenceOption("B-MATCH", { day: 2, start: 9 * HOUR, end: 10 * HOUR }, [task3Grace]),
+      task3AlignedPreferenceOption("B-UNKNOWN", { day: 2, start: 11 * HOUR, end: 13 * HOUR }, [
+        { displayName: "Unknown Instructor" },
+      ]),
+    ])[0],
+  ];
+  const matched = task3OraclePreferenceOutcome({
+    preferredInstructors: [task3Ada],
+    pick: [prefPlans[0].combos[1][0]],
+  });
+  const missed = task3OraclePreferenceOutcome({
+    preferredInstructors: [task3Ada],
+    pick: [prefPlans[0].combos[0][0]],
+  });
+  const unknown = task3OraclePreferenceOutcome({
+    preferredInstructors: [task3Ada],
+    pick: [prefPlans[0].combos[2][0]],
+  });
+  assert.equal(matched.matched, true);
+  assert.equal(missed.missed, 1);
+  assert.equal(unknown.missed, 0);
+
+  const signatures = new Set();
+  for (let mask = 0; mask < 16; mask++) {
+    const opts = {
+      campus: (mask & 1) ? 1 : 0,
+      lunch: (mask & 2) ? 1 : 0,
+      early: (mask & 4) ? 1 : 0,
+      late: (mask & 8) ? 1 : 0,
+    };
+    const oracle = task3PreferenceOracle(prefPlans, opts, optimizer);
+    const synchronous = optimizer.findBestPlan(prefPlans, opts);
+    const repeated = optimizer.findBestPlan(prefPlans, opts);
+    assert.equal(synchronous.status, "OPTIMAL", `mask ${mask}: search must complete`);
+    assert.equal(synchronous.signature, oracle.signature,
+      `mask ${mask}: preference oracle stable signature mismatch`);
+    assert.deepEqual(synchronous.evaluation, optimizer.evaluatePlan(synchronous.plan));
+    assert.equal(synchronous.evaluation.preferredCourseCount, oracle.evaluation.preferredCourseCount);
+    assert.equal(synchronous.evaluation.matchedCourseCount, oracle.evaluation.matchedCourseCount);
+    assert.equal(synchronous.evaluation.missedCourseCount, oracle.evaluation.missedCourseCount);
+    assert.deepEqual(synchronous.objective, optimizer.objectiveKey(synchronous.evaluation, opts));
+    assert.equal(repeated.signature, synchronous.signature, `mask ${mask}: repeated signature changed`);
+
+    const cooperative = await optimizer.findBestPlan(prefPlans, opts, {
+      cooperative: true,
+      schedule(callback) { callback(); },
+    });
+    assert.equal(cooperative.status, synchronous.status, `mask ${mask}: traversal status differs`);
+    assert.equal(cooperative.signature, synchronous.signature, `mask ${mask}: traversal signature differs`);
+    assert.deepEqual(cooperative.evaluation, synchronous.evaluation);
+    assert.deepEqual(cooperative.objective, synchronous.objective);
+    assert.equal(cooperative.combinationsSearched, synchronous.combinationsSearched,
+      `mask ${mask}: traversal search count differs`);
+    signatures.add(synchronous.signature);
+  }
+  assert.ok(signatures.size >= 1);
+});
+
+
+test("Task 3: instructor preference helper is canonical, one-course, and neutral when unknown", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+
+  const sameTime = { day: 2, start: 9 * HOUR, end: 10 * HOUR };
+  const plans = task3PreferencePlan("PREF", [task3Ada], [
+    task3PreferenceOption("LEC-GRACE", sameTime, [task3Grace]),
+    task3PreferenceOption("LEC-ADA", sameTime, [task3Ada]),
+  ]);
+  const result = optimizer.findBestPlan(plans, task3None);
+  assert.equal(result.status, "OPTIMAL");
+  assert.equal(result.plan[0].preferredInstructors[0], "ada lovelace",
+    "candidate result must retain normalized preferredInstructors");
+  assert.equal(result.plan[0].pick[0].lectureProvenance[0].instructors[0], "ada lovelace",
+    "the identical-time preferred lecture must win on the instructor tier");
+  assert.deepEqual(optimizer.evaluateInstructorPreferences(result.plan), {
+    preferredCourseCount: 1,
+    matchedCourseCount: 1,
+    missedCourseCount: 0,
+  });
+  assert.deepEqual(result.evaluation, optimizer.evaluatePlan(result.plan));
+  assert.deepEqual(result.objective, optimizer.objectiveKey(result.evaluation, task3None));
+  assert.equal(
+    Object.prototype.propertyIsEnumerable.call(result.objective, "missedCourseCount"),
+    true,
+    "active preference objectives must expose missedCourseCount",
+  );
+  assert.equal(result.evaluation.preferredCourseCount, 1);
+  assert.equal(result.evaluation.matchedCourseCount, 1);
+  assert.equal(result.evaluation.missedCourseCount, 0);
+
+  const unknownOption = task3PreferenceOption("LEC-UNKNOWN", sameTime, [
+    { displayName: "Unknown Instructor" },
+  ]);
+  const unknownPlan = task3PreferencePlan("UNKNOWN", [task3Ada], [unknownOption]);
+  const unknownResult = optimizer.findBestPlan(unknownPlan, task3None);
+  assert.deepEqual(optimizer.evaluateInstructorPreferences(unknownResult.plan), {
+    preferredCourseCount: 1,
+    matchedCourseCount: 0,
+    missedCourseCount: 0,
+  }, "active preference plus unknown source data must remain neutral");
+
+  const noLecturePlan = [{
+    code: "NO-LECTURE",
+    preferredInstructors: [task3Ada],
+    pick: [{ tm: "TUT", sec: { name: "TUT1" }, ms: [sameTime] }],
+  }];
+  assert.deepEqual(optimizer.evaluateInstructorPreferences(noLecturePlan), {
+    preferredCourseCount: 1,
+    matchedCourseCount: 0,
+    missedCourseCount: 0,
+  }, "excluded or absent lecture items must remain neutral");
+
+  const checkedNamesForward = optimizer.findBestPlan(
+    task3PreferencePlan("NAMES", [task3Ada, task3Grace], [
+      task3PreferenceOption("LEC-ADA", sameTime, [task3Ada]),
+      task3PreferenceOption("LEC-GRACE", sameTime, [task3Grace]),
+    ]), task3None,
+  );
+  const checkedNamesReverse = optimizer.findBestPlan(
+    task3PreferencePlan("NAMES", [task3Grace, task3Ada], [
+      task3PreferenceOption("LEC-ADA", sameTime, [task3Ada]),
+      task3PreferenceOption("LEC-GRACE", sameTime, [task3Grace]),
+    ]), task3None,
+  );
+  assert.deepEqual(checkedNamesForward.evaluation, checkedNamesReverse.evaluation,
+    "multiple checked names must be set-like and order-independent");
+  assert.equal(checkedNamesForward.signature, checkedNamesReverse.signature);
+
+  const noPreference = optimizer.findBestPlan(
+    task3PreferencePlan("NO-PREFERENCE", [], [
+      task3PreferenceOption("LEC-ADA", sameTime, [task3Ada]),
+      task3PreferenceOption("LEC-GRACE", sameTime, [task3Grace]),
+    ]), task3None,
+  );
+  assert.equal(noPreference.evaluation.preferredCourseCount, 0);
+  assert.equal(noPreference.evaluation.matchedCourseCount, 0);
+  assert.equal(noPreference.evaluation.missedCourseCount, 0);
+  assert.equal(
+    Object.prototype.propertyIsEnumerable.call(noPreference.objective, "missedCourseCount"),
+    false,
+    "no-preference objectives must retain their historical shape",
+  );
+
+});
+
+
+test("Task 3: campus, early, and late schedule tiers outrank instructor misses", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+
+  const cases = [
+    {
+      name: "campus",
+      options: { campus: 1, lunch: 0, early: 0, late: 0 },
+      preferred: [
+        { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+        { day: 2, start: 8 * HOUR, end: 9 * HOUR },
+      ],
+      other: [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }],
+    },
+    {
+      name: "early",
+      options: { campus: 0, lunch: 0, early: 1, late: 0 },
+      preferred: [{ day: 1, start: 8 * HOUR, end: 12 * HOUR }],
+      other: [{ day: 1, start: 8 * HOUR, end: 10 * HOUR }],
+    },
+    {
+      name: "late",
+      options: { campus: 0, lunch: 0, early: 0, late: 1 },
+      preferred: [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }],
+      other: [{ day: 1, start: 10 * HOUR, end: 11 * HOUR }],
+    },
+  ];
+
+  for (const fixture of cases) {
+    const result = optimizer.findBestPlan(
+      task3PreferencePlan(`PRIORITY-${fixture.name}`, [task3Ada], [
+        task3PreferenceOption("LEC-PREFERRED", fixture.preferred, [task3Ada]),
+        task3PreferenceOption("LEC-OTHER", fixture.other, [task3Grace]),
+      ]),
+      fixture.options,
+    );
+    assert.equal(result.status, "OPTIMAL", `${fixture.name}: search must complete`);
+    assert.equal(result.plan[0].pick[0].lectureProvenance[0].instructors[0], "grace hopper",
+      `${fixture.name}: the better existing schedule objective must beat the preference`);
+    assert.equal(result.evaluation.missedCourseCount, 1,
+      `${fixture.name}: selected non-preferred known instructor must count one miss`);
+    assert.equal(result.evaluation.matchedCourseCount, 0);
+    assert.deepEqual(result.evaluation, optimizer.evaluatePlan(result.plan));
+    assert.deepEqual(result.objective, optimizer.objectiveKey(result.evaluation, fixture.options));
+  }
 });

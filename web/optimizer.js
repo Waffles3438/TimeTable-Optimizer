@@ -197,13 +197,229 @@
       return String(section.name || section.sectionName || section.sectionCode || "");
     }
 
+    function canonicalIdentityText(value) {
+      if (typeof value !== "string") return "";
+      return value.trim().replace(/\s+/g, " ").toLowerCase();
+    }
+
+    /*
+     * Instructor identity is intentionally derived from exactly the two name
+     * fields supplied by the cache. IDs, usernames, emails, display names, and
+     * partial/legacy aliases are not identity fallbacks.
+     */
+    function canonicalInstructorIdentity(instructor) {
+      if (!instructor || typeof instructor !== "object" || Array.isArray(instructor))
+        return "";
+      const firstName = canonicalIdentityText(instructor.firstName);
+      const lastName = canonicalIdentityText(instructor.lastName);
+      if (!firstName || !lastName) return "";
+      return `${firstName} ${lastName}`;
+    }
+
+    function canonicalIdentityList(value) {
+      let source;
+      if (value instanceof Set) source = Array.from(value);
+      else if (Array.isArray(value)) source = value;
+      else if (value == null) source = [];
+      else source = [value];
+
+      const identities = new Set();
+      for (const item of source) {
+        // Strings are accepted here only as already-canonical keys carried by
+        // an explicit preference/provenance field. Raw instructor records must
+        // still pass canonicalInstructorIdentity above.
+        const identity = typeof item === "string"
+          ? canonicalIdentityText(item) : canonicalInstructorIdentity(item);
+        if (identity) identities.add(identity);
+      }
+      return Array.from(identities).sort(compareStrings);
+    }
+
+    function canonicalPreferredInstructors(value) {
+      if (value == null) return [];
+      if (typeof value === "string") return canonicalIdentityList(value);
+      if (value instanceof Set || Array.isArray(value)) return canonicalIdentityList(value);
+      if (value && typeof value === "object" &&
+        (Object.prototype.hasOwnProperty.call(value, "firstName") ||
+          Object.prototype.hasOwnProperty.call(value, "lastName"))) {
+        return canonicalIdentityList([value]);
+      }
+      return [];
+    }
+
+    function sectionRecord(value) {
+      let current = value;
+      const seen = [];
+      while (current && typeof current === "object" && !Array.isArray(current)) {
+        const nested = !Array.isArray(current.sections) && current.sec &&
+          typeof current.sec === "object" ? current.sec :
+          (!Array.isArray(current.sections) && current.section &&
+            typeof current.section === "object" ? current.section : null);
+        if (!nested || seen.indexOf(current) !== -1) break;
+        seen.push(current);
+        current = nested;
+      }
+      return current;
+    }
+
+    /*
+     * Extract raw section records from a course, section wrapper, or array of
+     * either.  Records are not cloned or reordered; callers that need stable
+     * ordering can apply sectionSignature/compareSections afterward.
+     */
+    function extractSections(value) {
+      if (Array.isArray(value)) {
+        const result = [];
+        for (const item of value) result.push(...extractSections(item));
+        return result;
+      }
+      if (!value || typeof value !== "object") return [];
+
+      const record = sectionRecord(value);
+      if (record !== value) return extractSections(record);
+      if (Array.isArray(value.sections)) {
+        const result = [];
+        for (const item of value.sections) result.push(...extractSections(item));
+        return result;
+      }
+
+      const hasSectionShape = [
+        "name", "sectionName", "sectionCode", "sectionNumber", "teachMethod",
+        "type", "meetingTimes", "meetings", "instructors", "instructor",
+      ].some(key => Object.prototype.hasOwnProperty.call(value, key));
+      return hasSectionShape ? [value] : [];
+    }
+
+    function extractSectionInstructors(value) {
+      const identities = new Set();
+      for (const section of extractSections(value)) {
+        const instructors = Array.isArray(section.instructors) ? section.instructors : [];
+        for (const instructor of instructors) {
+          const identity = canonicalInstructorIdentity(instructor);
+          if (identity) identities.add(identity);
+        }
+      }
+      return Array.from(identities).sort(compareStrings);
+    }
+
     function sectionSignature(section) {
       const sec = section && section.sec ? section.sec : section;
       return `${componentType(sec)}:${sectionName(sec)}:${meetings(sec).map(meetingSignature).join(",")}`;
     }
 
+    function sectionInstructorSignature(section) {
+      return extractSectionInstructors(section).join(",");
+    }
+
+    /*
+     * Exact duplicate sections still collapse, but lecture records with the
+     * same name/times and different valid instructors remain distinct because
+     * that provenance can affect a later preference objective.
+     */
+    function sectionIdentitySignature(section) {
+      const suffix = componentType(section) === "LEC"
+        ? `:${sectionInstructorSignature(section)}` : "";
+      return `${sectionSignature(section)}${suffix}`;
+    }
+
+    function lectureProvenanceEntries(option) {
+      const value = option || {};
+      const raw = Array.isArray(value.lectureProvenance)
+        ? value.lectureProvenance
+        : (Array.isArray(value.lecProvenance) ? value.lecProvenance : []);
+      const sourceMeetings = Array.isArray(value.ms) ? value.ms :
+        (Array.isArray(value.meetings) ? value.meetings : []);
+      const sourceNames = Array.isArray(value.secs) ? value.secs : [];
+      const count = Math.max(raw.length, sourceMeetings.length, sourceNames.length);
+      const entries = [];
+      const sourceTypeValue = value.tm || value.teachMethod || value.type ||
+        (value.sec && (value.sec.teachMethod || value.sec.type ||
+          value.sec.tm || value.sec.componentType)) ||
+        (value.section && (value.section.teachMethod || value.section.type ||
+          value.section.tm || value.section.componentType));
+      const sourceType = value.lec ? "LEC" :
+        (sourceTypeValue === undefined ? "" : componentType(sourceTypeValue));
+      const defaultSourceSection = sourceType === "LEC"
+        ? (value.sec && typeof value.sec === "object" ? value.sec :
+          (value.section && typeof value.section === "object" ? value.section : null))
+        : null;
+
+      for (let index = 0; index < count; index++) {
+        const rawEntry = raw[index];
+        let meetingValue = sourceMeetings[index];
+        // A normalized lecture lock has no lectureProvenance array, but its
+        // selected section still carries the strict instructor records.
+        let sourceSection = raw.length ? null : defaultSourceSection;
+        let sourceName = sourceNames[index];
+        let instructorValue;
+
+        if (Array.isArray(rawEntry)) {
+          meetingValue = rawEntry[0] !== undefined ? rawEntry[0] : meetingValue;
+          sourceSection = rawEntry[1] || null;
+          instructorValue = rawEntry[2];
+        } else if (rawEntry && typeof rawEntry === "object") {
+          meetingValue = rawEntry.meeting !== undefined ? rawEntry.meeting :
+            (rawEntry.m !== undefined ? rawEntry.m : meetingValue);
+          sourceSection = rawEntry.sourceSection || rawEntry.source ||
+            rawEntry.section || rawEntry.sec || null;
+          if (rawEntry.sectionName !== undefined) sourceName = rawEntry.sectionName;
+          if (rawEntry.instructors !== undefined) instructorValue = rawEntry.instructors;
+          else if (rawEntry.instructorIdentities !== undefined)
+            instructorValue = rawEntry.instructorIdentities;
+        }
+
+        const meeting = normalizeMeeting(meetingValue);
+        if (!meeting) continue;
+        const sectionObject = sourceSection && typeof sourceSection === "object"
+          ? sourceSection : null;
+        const resolvedName = sectionObject ? sectionName(sectionObject) :
+          String(sourceName == null ? (sourceSection || "LEC*") : sourceName);
+        const instructors = instructorValue !== undefined
+          ? canonicalIdentityList(instructorValue)
+          : (sectionObject ? extractSectionInstructors(sectionObject) : []);
+        entries.push({
+          meeting,
+          sourceSection: sectionObject,
+          sectionName: resolvedName,
+          instructors,
+        });
+      }
+
+      entries.sort((left, right) => compareMeetings(left.meeting, right.meeting) ||
+        compareStrings(left.sectionName, right.sectionName) ||
+        compareStrings(left.instructors.join(","), right.instructors.join(",")));
+      const seen = new Set();
+      return entries.filter(entry => {
+        const key = meetingSignature(entry.meeting);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function lectureProvenanceSignature(option) {
+      return lectureProvenanceEntries(option).map(entry => {
+        const source = entry.sourceSection
+          ? sectionIdentitySignature(entry.sourceSection) : entry.sectionName;
+        return `${meetingSignature(entry.meeting)}:${source}:${entry.instructors.join(",")}`;
+      }).join("|");
+    }
+
+    function normalizeLectureOption(option) {
+      const normalized = Object.assign({}, option || {});
+      const entries = lectureProvenanceEntries(normalized);
+      normalized.ms = entries.map(entry => entry.meeting);
+      normalized.secs = entries.map(entry => entry.sectionName);
+      normalized.lectureProvenance = entries;
+      return normalized;
+    }
+
     function optionMeetings(option) {
       if (!option) return [];
+      if (option.lec) {
+        const provenance = lectureProvenanceEntries(option);
+        if (provenance.length) return provenance.map(entry => entry.meeting);
+      }
       if (Array.isArray(option.ms)) return normalizeMeetingList(option.ms);
       if (Array.isArray(option.meetings)) return normalizeMeetingList(option.meetings);
       if (option.sec) return meetings(option.sec);
@@ -222,8 +438,12 @@
       if (!option) return "option:empty";
       const type = optionType(option);
       const sec = option.sec || option.section;
-      const names = Array.isArray(option.secs) ? option.secs.map(String).join(",") : "";
-      return `${type}:${sec ? sectionName(sec) : ""}:${names}:${optionMeetings(option).map(meetingSignature).join(",")}`;
+      const provenance = type === "LEC" ? lectureProvenanceSignature(option) : "";
+      const names = type === "LEC" && provenance
+        ? lectureProvenanceEntries(option).map(entry => entry.sectionName).join(",")
+        : (Array.isArray(option.secs) ? option.secs.map(String).join(",") : "");
+      return `${type}:${sec ? sectionName(sec) : ""}:${names}:${optionMeetings(option)
+        .map(meetingSignature).join(",")}:${provenance}`;
     }
 
     function candidateItems(candidate) {
@@ -256,6 +476,44 @@
 
     function planSignature(plan) {
       return planItems(plan).map(candidateSignature).sort(compareStrings).join("|");
+    }
+
+    /*
+     * Count instructor-preference outcomes once per course. A preference is
+     * active when its canonical set is non-empty. Only selected lecture
+     * provenance contributes to a match/miss; excluded or absent lectures and
+     * lectures whose source records contain no complete firstName+lastName
+     * identity remain neutral.
+     */
+    function evaluateInstructorPreferences(plan) {
+      const result = {
+        preferredCourseCount: 0,
+        matchedCourseCount: 0,
+        missedCourseCount: 0,
+      };
+
+      for (const course of planItems(plan)) {
+        const preferred = canonicalPreferredInstructors(course && course.preferredInstructors);
+        if (!preferred.length) continue;
+        result.preferredCourseCount++;
+
+        const preferredSet = new Set(preferred);
+        let hasKnownInstructor = false;
+        let matched = false;
+        for (const item of candidateItems(course)) {
+          if (optionType(item) !== "LEC") continue;
+          for (const entry of lectureProvenanceEntries(item)) {
+            const instructors = Array.isArray(entry.instructors) ? entry.instructors : [];
+            if (!instructors.length) continue;
+            hasKnownInstructor = true;
+            if (instructors.some(identity => preferredSet.has(identity))) matched = true;
+          }
+        }
+
+        if (matched) result.matchedCourseCount++;
+        else if (hasKnownInstructor) result.missedCourseCount++;
+      }
+      return result;
     }
 
     function flattenEvents(value) {
@@ -293,7 +551,7 @@
         Object.prototype.hasOwnProperty.call(COMPONENT_ORDER, typeRight)
           ? COMPONENT_ORDER[typeRight] : 100,
       ) || compareStrings(sectionName(left), sectionName(right)) ||
-        compareStrings(sectionSignature(left), sectionSignature(right));
+        compareStrings(sectionIdentitySignature(left), sectionIdentitySignature(right));
     }
 
     function compareOptions(left, right) {
@@ -349,9 +607,18 @@
         if (!entry || entry.code == null) continue;
         const code = String(entry.code);
         if (includeCodes && !includeCodes.has(code)) continue;
-        if (!grouped.has(code)) grouped.set(code, { code, name: entry.name || code, sections: [] });
+        if (!grouped.has(code)) grouped.set(code, {
+          code,
+          name: entry.name || code,
+          sections: [],
+          preferredInstructors: canonicalPreferredInstructors(entry.preferredInstructors),
+        });
         const target = grouped.get(code);
         if (target.name === code && entry.name) target.name = entry.name;
+        target.preferredInstructors = canonicalPreferredInstructors([
+          ...(target.preferredInstructors || []),
+          ...canonicalPreferredInstructors(entry.preferredInstructors),
+        ]);
         const sourceSections = Array.isArray(entry.sections)
           ? entry.sections
           : (entry.section ? [entry.section] : []);
@@ -360,9 +627,14 @@
 
       const courses = Array.from(grouped.values()).map(course => {
         const unique = new Map();
-        for (const section of course.sections) unique.set(sectionSignature(section), section);
+        for (const section of course.sections) unique.set(sectionIdentitySignature(section), section);
         const sections = Array.from(unique.values()).sort(compareSections);
-        const result = { code: course.code, name: course.name, sections };
+        const result = {
+          code: course.code,
+          name: course.name,
+          sections,
+          preferredInstructors: canonicalPreferredInstructors(course.preferredInstructors),
+        };
         result.combos = opts.includeCombos === false ? [] : rawCourseCombos(sections);
         return result;
       });
@@ -381,7 +653,7 @@
         .filter(section => componentType(section) === "LEC")
         .slice();
       const unique = new Map();
-      for (const section of sections) unique.set(sectionSignature(section), section);
+      for (const section of sections) unique.set(sectionIdentitySignature(section), section);
       const all = Array.from(unique.values())
         .map(sec => ({ sec, ms: usableMeetings(sec) }))
         .filter(option => option.ms.length)
@@ -393,8 +665,13 @@
       for (let position = 0; position < count; position++) {
         positions[position] = all
           .filter(option => position < option.ms.length)
-          .map(option => ({ sec: option.sec, m: option.ms[position] }))
+          .map(option => ({
+            sec: option.sec,
+            m: option.ms[position],
+            instructors: extractSectionInstructors(option.sec),
+          }))
           .sort((left, right) => compareStrings(sectionName(left.sec), sectionName(right.sec)) ||
+            compareStrings(left.instructors.join(","), right.instructors.join(",")) ||
             compareMeetings(left.m, right.m));
       }
 
@@ -418,11 +695,20 @@
       const result = [];
       const seen = new Set();
       for (const choice of choices) {
+        const provenance = choice.map(item => ({
+          meeting: item.m,
+          sourceSection: item.sec,
+          sectionName: sectionName(item.sec),
+          instructors: item.instructors.slice(),
+        }));
         const option = {
           lec: true,
           sec: { name: "LEC*" },
           ms: choice.map(item => item.m),
           secs: choice.map(item => sectionName(item.sec)),
+          // Keep this as one aligned record per ms entry. normalizePlanInput
+          // sorts the records, not the arrays independently.
+          lectureProvenance: provenance,
         };
         const signature = optionSignature(option);
         if (seen.has(signature)) continue;
@@ -602,6 +888,20 @@
       return normalized;
     }
 
+    function preferredInstructorsForCourse(course, state) {
+      const stateValue = state && state.preferredInstructors;
+      const code = String(course && course.code || course && course.courseCode || "");
+      if (stateValue !== undefined) {
+        if (stateValue instanceof Map && stateValue.has(code)) return stateValue.get(code);
+        if (stateValue && typeof stateValue === "object" && !Array.isArray(stateValue) &&
+          !(stateValue instanceof Set) && !Object.prototype.hasOwnProperty.call(stateValue, "firstName") &&
+          !Object.prototype.hasOwnProperty.call(stateValue, "lastName") &&
+          Object.prototype.hasOwnProperty.call(stateValue, code)) return stateValue[code];
+        return stateValue;
+      }
+      return course && course.preferredInstructors;
+    }
+
     function compareComponentTypes(left, right) {
       const leftRank = Object.prototype.hasOwnProperty.call(COMPONENT_ORDER, left)
         ? COMPONENT_ORDER[left] : 100;
@@ -679,12 +979,16 @@
         compareStrings(left.code, right.code))) {
         const uniqueSections = new Map();
         for (const section of sourceCourse.sections || []) {
-          if (section) uniqueSections.set(sectionSignature(section), section);
+          if (section) uniqueSections.set(sectionIdentitySignature(section), section);
         }
+        const preferredInstructors = canonicalPreferredInstructors(
+          preferredInstructorsForCourse(sourceCourse, buildState),
+        );
         const course = {
           code: String(sourceCourse.code),
           name: sourceCourse.name || String(sourceCourse.code),
           sections: Array.from(uniqueSections.values()).sort(compareSections),
+          preferredInstructors,
         };
         const normalizedLocks = stateLocksForCourse(course, buildState)
           .map(lock => normalizeLock(course, lock, buildState))
@@ -746,6 +1050,7 @@
         result.push({
           code: course.code,
           name: course.name,
+          preferredInstructors: course.preferredInstructors.slice(),
           locked: locks,
           invalidLocks,
           poolTypes: built.types,
@@ -959,6 +1264,7 @@
         sumEndHours: sumEndMs / HOUR,
         early: sumEndMs / HOUR,
         late: -sumStartMs / HOUR,
+        ...evaluateInstructorPreferences(plan || []),
         signature: planSignature(plan || []),
       };
     }
@@ -1002,11 +1308,26 @@
         opts.early * evaluation.sumEndMs - opts.late * evaluation.sumStartMs;
       // Lunch is deliberately a lexicographic tier when enabled.  This keeps a
       // feasible one-hour lunch from being traded away for another preference.
-      return {
+      const missedCourseCount = Number.isFinite(Number(evaluation.missedCourseCount))
+        ? Math.max(0, Math.floor(Number(evaluation.missedCourseCount))) : 0;
+      const preferredCourseCount = Number.isFinite(Number(evaluation.preferredCourseCount))
+        ? Math.max(0, Math.floor(Number(evaluation.preferredCourseCount))) : 0;
+      const key = {
         lunchDeficitMs: opts.lunch ? evaluation.lunchDeficitMs : 0,
         combinedMs: nonLunchMs,
         totalMs: nonLunchMs + (opts.lunch ? evaluation.lunchDeficitMs : 0),
       };
+      // Keep the historical enumerable objective shape while giving the exact
+      // search its internal comparison tiers and stable final tie value.
+      Object.defineProperty(key, "missedCourseCount", {
+        value: missedCourseCount,
+        enumerable: preferredCourseCount > 0 || missedCourseCount !== 0,
+      });
+      Object.defineProperty(key, "signature", {
+        value: String(evaluation.signature || ""),
+        enumerable: false,
+      });
+      return key;
     }
 
     function compareEvaluations(leftEvaluation, rightEvaluation, options) {
@@ -1017,14 +1338,23 @@
         return leftKey.lunchDeficitMs < rightKey.lunchDeficitMs ? -1 : 1;
       if (leftKey.combinedMs !== rightKey.combinedMs)
         return leftKey.combinedMs < rightKey.combinedMs ? -1 : 1;
+      if (leftKey.missedCourseCount !== rightKey.missedCourseCount)
+        return leftKey.missedCourseCount < rightKey.missedCourseCount ? -1 : 1;
       return compareStrings(
-        leftEvaluation.signature || "",
-        rightEvaluation.signature || "",
+        leftEvaluation.signature || leftKey.signature || "",
+        rightEvaluation.signature || rightKey.signature || "",
       );
     }
 
     function comparePlans(left, right, options) {
       return compareEvaluations(asEvaluation(left), asEvaluation(right), options);
+    }
+
+    function normalizePlanOption(option) {
+      if (option && option.lec) return normalizeLectureOption(option);
+      const normalized = Object.assign({}, option || {});
+      normalized.ms = optionMeetings(option);
+      return normalized;
     }
 
     function normalizePlanInput(plans) {
@@ -1033,6 +1363,7 @@
         const normalized = {
           code: String(course && (course.code || course.courseCode || "")),
           name: course && course.name ? course.name : String(course && course.code || ""),
+          preferredInstructors: canonicalPreferredInstructors(course && course.preferredInstructors),
           locked: [],
           invalidLocks: Array.isArray(course && course.invalidLocks)
             ? course.invalidLocks.map(lock => ({
@@ -1068,10 +1399,7 @@
         // this order stable makes normalized inputs deterministic.
         normalized.poolTypes.sort(compareComponentTypes);
         normalized.combos = (Array.isArray(course && course.combos) ? course.combos : [])
-          .map(combo => (Array.isArray(combo) ? combo : []).map(option => ({
-            ...option,
-            ms: optionMeetings(option),
-          })))
+          .map(combo => (Array.isArray(combo) ? combo : []).map(normalizePlanOption))
           .sort((left, right) => compareStrings(
             left.map(optionSignature).sort(compareStrings).join(";"),
             right.map(optionSignature).sort(compareStrings).join(";"),
@@ -1125,6 +1453,8 @@
 
       const normalizedPlans = normalizePlanInput(plans);
       const opts = normalizeOptions(options);
+      const preferenceAwareSearch = normalizedPlans.some(course =>
+        course.preferredInstructors.length > 0);
       // The first lunch-enabled pass can safely omit candidates whose own
       // schedule already destroys the lunch gap, because a zero-deficit plan
       // is always preferable. If that restricted pass cannot find zero lunch
@@ -1258,6 +1588,7 @@
           const candidate = {
             code: course.code,
             name: course.name,
+            preferredInstructors: course.preferredInstructors.slice(),
             pick,
           };
           // This is a defensive second check in addition to buildCoursePlans:
@@ -1268,11 +1599,18 @@
           const lunchSafe = candidateHasLunchGap(events);
           if (filterUnsafeLunchCandidates && !lunchSafe) continue;
           const signature = candidateSignature(candidate);
-          const equivalenceKey = candidateItems(candidate)
+          // Feasibility and every schedule term depend on the typed events,
+          // not on section names or lecture provenance. Keep provenance
+          // distinctions only for this course when its canonical preference
+          // set can make them objective-relevant.
+          const eventEquivalenceKey = candidateItems(candidate)
             .map(item => `${optionType(item)}:${optionMeetings(item)
               .map(meetingSignature).sort(compareStrings).join(",")}`)
             .sort(compareStrings)
             .join("|");
+          const coursePreferenceAware = course.preferredInstructors.length > 0;
+          const equivalenceKey = coursePreferenceAware
+            ? signature : eventEquivalenceKey;
           const previous = unique.get(equivalenceKey);
           // Candidates with identical typed event schedules have identical
           // feasibility and objective behavior. Retain the lexicographically
@@ -1286,10 +1624,13 @@
             }
           }
           const stats = candidateStats(events);
+          const preferenceMiss = coursePreferenceAware
+            ? evaluateInstructorPreferences(candidate).missedCourseCount : 0;
           unique.set(equivalenceKey, {
             plan: candidate,
             combo,
             signature,
+            preferenceMiss,
             lunchSafe,
             events,
             days: stats.days,
@@ -1300,7 +1641,13 @@
         }
         const candidates = Array.from(unique.values())
           .sort((left, right) => compareStrings(left.signature, right.signature));
-        candidateSets.push({ course, candidates, possibleMasks: new Map() });
+        candidateSets.push({
+          course,
+          candidates,
+          minimumPreferenceMiss: candidates.length
+            ? Math.min(...candidates.map(candidate => candidate.preferenceMiss)) : 0,
+          possibleMasks: new Map(),
+        });
       }
 
       // A candidate that overlaps a fixed lock from another course can never
@@ -1321,6 +1668,8 @@
           !candidate.events.some(event =>
             otherLockedEvents.some(lockedEvent => overlaps(event, lockedEvent)),
           ));
+        entry.minimumPreferenceMiss = entry.candidates.length
+          ? Math.min(...entry.candidates.map(candidate => candidate.preferenceMiss)) : 0;
       }
 
       const noCandidate = candidateSets.find(entry => entry.candidates.length === 0);
@@ -1428,6 +1777,9 @@
         entry.searchBit = candidateSets.length <= 30 ? 2 ** index : 0;
       }
 
+      // These caches contain only remaining-course geometry. Preferences do
+      // not change masks, day unions, lunch geometry, or endpoint bounds, so
+      // retain them even when the objective also tracks instructor state.
       const subsetCacheEnabled = candidateSets.length <= 30;
       const allRemainingMask = subsetCacheEnabled
         ? (2 ** candidateSets.length) - 1 : 0;
@@ -1603,6 +1955,7 @@
       const selectedBlocks = new Map();
       let selectedStartMs = 0;
       let selectedEndMs = 0;
+      let selectedMissedCourseCount = 0;
       let nodesVisited = searchCountOffset;
       let prunedNodes = 0;
       let bestPlan = null;
@@ -1938,7 +2291,9 @@
         const previousMasks = [];
         const blockedTrailMark = blockedTrail.length;
         const previousDayMask = selectedDayMask;
+        const previousMissedCourseCount = selectedMissedCourseCount;
         const previousLunchState = addLunchState(candidate);
+        selectedMissedCourseCount += candidate.preferenceMiss || 0;
         selectedDayMask |= dayBitMask(candidate.days);
         candidate.ownerEntry.selected = true;
         for (const [day, mask] of candidate.masks.entries()) {
@@ -1953,7 +2308,13 @@
         selectedStartMs += candidate.sumStartMs;
         selectedEndMs += candidate.sumEndMs;
         selected.push(candidate);
-        return { previousMasks, blockedTrailMark, previousDayMask, previousLunchState };
+        return {
+          previousMasks,
+          blockedTrailMark,
+          previousDayMask,
+          previousMissedCourseCount,
+          previousLunchState,
+        };
       };
 
       const ensureAvailable = (entry) => {
@@ -2008,6 +2369,7 @@
         selected.pop();
         selectedStartMs -= candidate.sumStartMs;
         selectedEndMs -= candidate.sumEndMs;
+        selectedMissedCourseCount = previousState.previousMissedCourseCount;
         selectedDayMask = previousState.previousDayMask;
         const previousLunchState = previousState.previousLunchState;
         selectedLunchDeficit = previousLunchState.lunchDeficit;
@@ -2041,23 +2403,39 @@
         candidate.ownerEntry.selected = false;
       };
 
-      const compareObjectiveKeys = (left, right) => {
+      const compareObjectiveValues = (left, right) => {
         if (left.lunchDeficitMs !== right.lunchDeficitMs)
           return left.lunchDeficitMs < right.lunchDeficitMs ? -1 : 1;
         if (left.combinedMs !== right.combinedMs)
           return left.combinedMs < right.combinedMs ? -1 : 1;
+        if (left.missedCourseCount !== right.missedCourseCount)
+          return left.missedCourseCount < right.missedCourseCount ? -1 : 1;
         return 0;
+      };
+      const compareObjectiveKeys = (left, right) => {
+        return compareObjectiveValues(left, right) ||
+          compareStrings(left.signature || "", right.signature || "");
       };
 
       const canUseBounds = opts.campus >= 0 && opts.lunch >= 0 &&
         opts.early >= 0 && opts.late >= 0;
       const activeDaysCanImprove = (baseMask, remaining, remainingMask) => {
-        if (!bestObjective || opts.campus <= 0 || opts.early || opts.late ||
+        if (!bestObjective || !canUseBounds || opts.campus <= 0 || opts.early || opts.late ||
           (opts.lunch && bestObjective.lunchDeficitMs !== 0)) return true;
         return Array.from(possibleDayMasksForRemaining(remaining, remainingMask))
-          .some(mask => opts.campus * popcount32((baseMask | mask) >>> 0) * HOUR <
-            bestObjective.combinedMs);
+          .some(mask => {
+            const lower = opts.campus * popcount32((baseMask | mask) >>> 0) * HOUR;
+            // Preference-aware equality remains live for missed-count and
+            // stable-signature tie breaking; no-preference searches retain the
+            // historical strict-improvement shortcut.
+            return preferenceAwareSearch
+              ? lower <= bestObjective.combinedMs
+              : lower < bestObjective.combinedMs;
+          });
       };
+      const remainingPreferenceMissLowerBound = remaining =>
+        selectedMissedCourseCount + remaining.reduce((total, entry) =>
+          total + entry.minimumPreferenceMiss, 0);
       const shouldPrune = (remaining, pruneEqual, remainingMask = 0) => {
         if (!bestObjective || !canUseBounds) return false;
         // When the incumbent already has a feasible lunch and the objective
@@ -2094,6 +2472,12 @@
         // the second pass keeps equality so it can find the stable tie.
         if (lowerCombined < bestObjective.combinedMs) return false;
         if (lowerCombined > bestObjective.combinedMs) return true;
+        // Once lunch and schedule can do no better, a strictly larger
+        // admissible miss lower bound cannot catch the incumbent. Equality is
+        // deliberately retained for the final stable signature tie.
+        if (preferenceAwareSearch)
+          return remainingPreferenceMissLowerBound(remaining) >
+            bestObjective.missedCourseCount;
         return pruneEqual;
       };
 
@@ -2407,7 +2791,7 @@
       };
 
       const searchOrder = [];
-      const objectiveStateMemo = new Set();
+      const objectiveStateMemo = preferenceAwareSearch ? null : new Set();
       const objectiveStateKey = (remaining, remainingMask) => {
         const remainingKey = subsetCacheEnabled
           ? String(remainingMask)
@@ -2424,11 +2808,11 @@
         nodesVisited++;
         countSearchState();
         const stateKey = objectiveStateKey(remaining, remainingMask);
-        if (objectiveStateMemo.has(stateKey)) {
+        if (objectiveStateMemo && objectiveStateMemo.has(stateKey)) {
           prunedNodes++;
           return;
         }
-        objectiveStateMemo.add(stateKey);
+        if (objectiveStateMemo) objectiveStateMemo.add(stateKey);
         if (debugCallback && nodesVisited <= 3) debugCallback({
           phase: "objective-before-prune",
           node: nodesVisited,
@@ -2505,6 +2889,55 @@
       // traversal directly for maximum performance.
       const lexCandidateSets = candidateSets.slice().sort((left, right) =>
         compareStrings(left.course.code, right.course.code));
+      // Stable no-lunch ties use the canonical course/candidate order only for
+      // the prefix. Each prefix asks an exact MRV completion query whether the
+      // incumbent objective values are reachable; the query never selects the
+      // returned plan. Preference-aware states retain provenance/miss state,
+      // so only no-preference searches may reuse this occupancy-safe memo.
+      const objectiveCompletionMemo = preferenceAwareSearch ? null : new Map();
+      const hasObjectiveValueCompletionUncached = (remaining, remainingMask) => {
+        nodesVisited++;
+        countSearchState();
+
+        if (shouldPrune(remaining, false, remainingMask)) {
+          prunedNodes++;
+          return false;
+        }
+        if (!remaining.length) {
+          const plan = selected.map(candidate => candidate.plan)
+            .sort((left, right) => compareStrings(left.code, right.code));
+          if (!finalPlanInvariant(plan)) return false;
+          const evaluation = evaluatePlan(plan);
+          return compareObjectiveValues(objectiveKey(evaluation, opts), bestObjective) === 0;
+        }
+
+        const choice = chooseNext(remaining);
+        if (!choice) {
+          prunedNodes++;
+          return false;
+        }
+        const nextRemaining = remaining.filter(entry => entry !== choice.entry);
+        const nextRemainingMask = subsetCacheEnabled
+          ? remainingMask & ~choice.entry.searchBit : 0;
+        for (const candidate of choice.compatible) {
+          const previousMasks = addCandidate(candidate);
+          const found = !lunchPrefixExceedsIncumbent() &&
+            hasObjectiveValueCompletion(nextRemaining, nextRemainingMask);
+          removeCandidate(candidate, previousMasks);
+          if (found) return true;
+        }
+        return false;
+      };
+
+      const hasObjectiveValueCompletion = (remaining, remainingMask) => {
+        const key = objectiveStateKey(remaining, remainingMask);
+        if (objectiveCompletionMemo && objectiveCompletionMemo.has(key))
+          return objectiveCompletionMemo.get(key);
+        const result = hasObjectiveValueCompletionUncached(remaining, remainingMask);
+        if (objectiveCompletionMemo) objectiveCompletionMemo.set(key, result);
+        return result;
+      };
+
       const visitCanonicalStableTie = (remaining, remainingMask) => {
         nodesVisited++;
         countSearchState();
@@ -2520,7 +2953,7 @@
 
           const evaluation = evaluatePlan(plan);
           const objective = objectiveKey(evaluation, opts);
-          if (compareObjectiveKeys(objective, bestObjective) !== 0) return false;
+          if (compareObjectiveValues(objective, bestObjective) !== 0) return false;
           bestPlan = plan;
           bestEvaluation = evaluation;
           bestObjective = objective;
@@ -2543,12 +2976,20 @@
           ? remainingMask & ~entry.searchBit : 0;
         for (const candidate of compatible) {
           const previousMasks = addCandidate(candidate);
-          const found = visitCanonicalStableTie(nextRemaining, nextRemainingMask);
+          const feasible = !lunchPrefixExceedsIncumbent() &&
+            (nextRemaining.length === 0 ||
+              hasObjectiveValueCompletion(nextRemaining, nextRemainingMask));
           removeCandidate(candidate, previousMasks);
+          if (!feasible) continue;
+
+          const committed = addCandidate(candidate);
+          const found = visitCanonicalStableTie(nextRemaining, nextRemainingMask);
+          removeCandidate(candidate, committed);
           if (found) return true;
         }
         return false;
       };
+
 
       /*
        * Lunch-enabled stable ties use the canonical course-code order only
@@ -2558,7 +2999,7 @@
        * This preserves the stable result while avoiding the enormous fixed
        * Cartesian traversal seen in the lunch-enabled case.
        */
-      const lunchCompletionMemo = new Map();
+      const lunchCompletionMemo = preferenceAwareSearch ? null : new Map();
       const hasLunchObjectiveCompletionUncached = (remaining, remainingMask) => {
         nodesVisited++;
         countSearchState();
@@ -2572,7 +3013,7 @@
             .sort((left, right) => compareStrings(left.code, right.code));
           if (!finalPlanInvariant(plan)) return false;
           const evaluation = evaluatePlan(plan);
-          return compareObjectiveKeys(objectiveKey(evaluation, opts), bestObjective) === 0;
+          return compareObjectiveValues(objectiveKey(evaluation, opts), bestObjective) === 0;
         }
 
         const choice = chooseNext(remaining);
@@ -2595,9 +3036,10 @@
 
       const hasLunchObjectiveCompletion = (remaining, remainingMask) => {
         const key = objectiveStateKey(remaining, remainingMask);
-        if (lunchCompletionMemo.has(key)) return lunchCompletionMemo.get(key);
+        if (lunchCompletionMemo && lunchCompletionMemo.has(key))
+          return lunchCompletionMemo.get(key);
         const result = hasLunchObjectiveCompletionUncached(remaining, remainingMask);
-        lunchCompletionMemo.set(key, result);
+        if (lunchCompletionMemo) lunchCompletionMemo.set(key, result);
         return result;
       };
 
@@ -2615,7 +3057,7 @@
           if (!finalPlanInvariant(plan)) return false;
           const evaluation = evaluatePlan(plan);
           const objective = objectiveKey(evaluation, opts);
-          if (compareObjectiveKeys(objective, bestObjective) !== 0) return false;
+          if (compareObjectiveValues(objective, bestObjective) !== 0) return false;
           bestPlan = plan;
           bestEvaluation = evaluation;
           bestObjective = objective;
@@ -2716,12 +3158,12 @@
               nodesVisited++;
               countSearchState();
               const stateKey = objectiveStateKey(frame.remaining, frame.remainingMask);
-              if (objectiveStateMemo.has(stateKey)) {
+              if (objectiveStateMemo && objectiveStateMemo.has(stateKey)) {
                 prunedNodes++;
                 stack.pop();
                 continue;
               }
-              objectiveStateMemo.add(stateKey);
+              if (objectiveStateMemo) objectiveStateMemo.add(stateKey);
               if (nodesVisited % 64 === 0) yield null;
 
               if (shouldPrune(frame.remaining, true, frame.remainingMask)) {
@@ -2783,82 +3225,117 @@
           }
         };
 
-        const canonicalStableTraversal = function* () {
-          const stack = [makeFrame(lexCandidateSets, allRemainingMask)];
-          let found = false;
-          while (stack.length) {
-            const frame = stack[stack.length - 1];
-            if (frame.active) {
-              removeCandidate(frame.active.candidate, frame.active.state);
-              frame.active = null;
-            }
-            if (found) {
-              stack.pop();
-              continue;
-            }
-            if (!frame.entered) {
-              frame.entered = true;
-              nodesVisited++;
-              countSearchState();
-              if (nodesVisited % 64 === 0) yield null;
+        const hasObjectiveValueCompletionCooperative = function* (remaining, remainingMask) {
+          const key = objectiveStateKey(remaining, remainingMask);
+          if (objectiveCompletionMemo && objectiveCompletionMemo.has(key))
+            return objectiveCompletionMemo.get(key);
 
-              if (shouldPrune(frame.remaining, false, frame.remainingMask)) {
-                prunedNodes++;
-                stack.pop();
-                continue;
-              }
-              if (!frame.remaining.length) {
-                const plan = selected.map(candidate => candidate.plan)
-                  .sort((left, right) => compareStrings(left.code, right.code));
-                if (finalPlanInvariant(plan)) {
-                  const evaluation = evaluatePlan(plan);
-                  const objective = objectiveKey(evaluation, opts);
-                  if (compareObjectiveKeys(objective, bestObjective) === 0) {
-                    bestPlan = plan;
-                    bestEvaluation = evaluation;
-                    bestObjective = objective;
-                    found = true;
-                  }
-                }
-                stack.pop();
-                continue;
-              }
+          nodesVisited++;
+          countSearchState();
+          if (nodesVisited % 64 === 0) yield null;
 
-              const entry = frame.remaining[0];
-              ensureAvailable(entry);
-              if (entry.candidates.length - entry.blockedCount <= 0) {
-                prunedNodes++;
-                stack.pop();
-                continue;
-              }
-              frame.compatible = compatibleCandidates(entry);
-              if (!frame.compatible.length) {
-                prunedNodes++;
-                stack.pop();
-                continue;
-              }
-              frame.nextRemaining = frame.remaining.slice(1);
-              frame.nextRemainingMask = subsetCacheEnabled
-                ? frame.remainingMask & ~entry.searchBit : 0;
-            }
-
-            if (frame.index >= frame.compatible.length) {
-              stack.pop();
-              continue;
-            }
-            const candidate = frame.compatible[frame.index++];
-            const state = addCandidate(candidate);
-            if (lunchPrefixExceedsIncumbent()) {
-              removeCandidate(candidate, state);
-              continue;
-            }
-            frame.active = {
-              candidate,
-              state,
-            };
-            stack.push(makeFrame(frame.nextRemaining, frame.nextRemainingMask));
+          if (shouldPrune(remaining, false, remainingMask)) {
+            prunedNodes++;
+            if (objectiveCompletionMemo) objectiveCompletionMemo.set(key, false);
+            return false;
           }
+          if (!remaining.length) {
+            const plan = selected.map(candidate => candidate.plan)
+              .sort((left, right) => compareStrings(left.code, right.code));
+            const result = finalPlanInvariant(plan) &&
+              compareObjectiveValues(objectiveKey(evaluatePlan(plan), opts), bestObjective) === 0;
+            if (objectiveCompletionMemo) objectiveCompletionMemo.set(key, result);
+            return result;
+          }
+
+          const choice = chooseNext(remaining);
+          if (!choice) {
+            prunedNodes++;
+            if (objectiveCompletionMemo) objectiveCompletionMemo.set(key, false);
+            return false;
+          }
+          const nextRemaining = remaining.filter(entry => entry !== choice.entry);
+          const nextRemainingMask = subsetCacheEnabled
+            ? remainingMask & ~choice.entry.searchBit : 0;
+          for (const candidate of choice.compatible) {
+            const previousMasks = addCandidate(candidate);
+            const found = !lunchPrefixExceedsIncumbent() &&
+              (yield* hasObjectiveValueCompletionCooperative(
+                nextRemaining,
+                nextRemainingMask,
+              ));
+            removeCandidate(candidate, previousMasks);
+            if (found) {
+              if (objectiveCompletionMemo) objectiveCompletionMemo.set(key, true);
+              return true;
+            }
+          }
+          if (objectiveCompletionMemo) objectiveCompletionMemo.set(key, false);
+          return false;
         };
+
+        const visitCanonicalStableTieCooperative = function* (remaining, remainingMask) {
+          nodesVisited++;
+          countSearchState();
+          if (nodesVisited % 64 === 0) yield null;
+
+          if (shouldPrune(remaining, false, remainingMask)) {
+            prunedNodes++;
+            return false;
+          }
+          if (!remaining.length) {
+            const plan = selected.map(candidate => candidate.plan)
+              .sort((left, right) => compareStrings(left.code, right.code));
+            if (!finalPlanInvariant(plan)) return false;
+            const evaluation = evaluatePlan(plan);
+            const objective = objectiveKey(evaluation, opts);
+            if (compareObjectiveValues(objective, bestObjective) !== 0) return false;
+            bestPlan = plan;
+            bestEvaluation = evaluation;
+            bestObjective = objective;
+            return true;
+          }
+
+          const entry = remaining[0];
+          ensureAvailable(entry);
+          if (entry.candidates.length - entry.blockedCount <= 0) {
+            prunedNodes++;
+            return false;
+          }
+          const compatible = compatibleCandidates(entry);
+          if (!compatible.length) {
+            prunedNodes++;
+            return false;
+          }
+          const nextRemaining = remaining.slice(1);
+          const nextRemainingMask = subsetCacheEnabled
+            ? remainingMask & ~entry.searchBit : 0;
+          for (const candidate of compatible) {
+            const previousMasks = addCandidate(candidate);
+            const feasible = !lunchPrefixExceedsIncumbent() &&
+              (nextRemaining.length === 0 ||
+                (yield* hasObjectiveValueCompletionCooperative(
+                  nextRemaining,
+                  nextRemainingMask,
+                )));
+            removeCandidate(candidate, previousMasks);
+            if (!feasible) continue;
+
+            const committed = addCandidate(candidate);
+            const found = yield* visitCanonicalStableTieCooperative(
+              nextRemaining,
+              nextRemainingMask,
+            );
+            removeCandidate(candidate, committed);
+            if (found) return true;
+          }
+          return false;
+        };
+
+        const canonicalStableTraversal = function* () {
+          yield* visitCanonicalStableTieCooperative(lexCandidateSets, allRemainingMask);
+        };
+
 
         const hasLunchObjectiveCompletionCooperative = function* (remaining, remainingMask) {
           nodesVisited++;
@@ -2874,7 +3351,7 @@
               .sort((left, right) => compareStrings(left.code, right.code));
             if (!finalPlanInvariant(plan)) return false;
             const evaluation = evaluatePlan(plan);
-            return compareObjectiveKeys(objectiveKey(evaluation, opts), bestObjective) === 0;
+            return compareObjectiveValues(objectiveKey(evaluation, opts), bestObjective) === 0;
           }
 
           const choice = chooseNext(remaining);
@@ -2913,7 +3390,7 @@
             if (!finalPlanInvariant(plan)) return false;
             const evaluation = evaluatePlan(plan);
             const objective = objectiveKey(evaluation, opts);
-            if (compareObjectiveKeys(objective, bestObjective) !== 0) return false;
+            if (compareObjectiveValues(objective, bestObjective) !== 0) return false;
             bestPlan = plan;
             bestEvaluation = evaluation;
             bestObjective = objective;
@@ -3070,10 +3547,24 @@
       stableMeetingSignature: meetingSignature,
       componentType,
       sectionName,
+      canonicalInstructorIdentity,
+      instructorIdentity: canonicalInstructorIdentity,
+      stableInstructorIdentity: canonicalInstructorIdentity,
+      extractSection: sectionRecord,
+      sectionRecord,
+      extractSections,
+      extractSectionRecords: extractSections,
+      extractSectionInstructors,
+      sectionInstructors: extractSectionInstructors,
       sectionSignature,
       stableSectionSignature: sectionSignature,
       optionSignature,
       stableOptionSignature: optionSignature,
+      lectureProvenanceEntries,
+      normalizeLectureOption,
+      evaluateInstructorPreferences,
+      canonicalPreferredInstructors,
+      normalizePlanInput,
       candidateSignature,
       stableCandidateSignature: candidateSignature,
       planSignature,

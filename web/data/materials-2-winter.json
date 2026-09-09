@@ -11,102 +11,6 @@
     ],
     "sections": [
       {
-        "name": "TUT0102",
-        "type": "Tutorial",
-        "teachMethod": "TUT",
-        "sectionNumber": "0102",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 3,
-              "millisofday": 46800000
-            },
-            "end": {
-              "day": 3,
-              "millisofday": 54000000
-            },
-            "building": {
-              "buildingCode": "GB",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494473",
-              "buildingName": null
-            },
-            "sessionCode": "20271",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Liyang",
-            "lastName": "Dai-Hattrick"
-          }
-        ],
-        "currentEnrolment": 46,
-        "maxEnrolment": 70,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20271",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 70,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
         "name": "LEC0101",
         "type": "Lecture",
         "teachMethod": "LEC",
@@ -160,7 +64,7 @@
             "lastName": "Dai-Hattrick"
           }
         ],
-        "currentEnrolment": 100,
+        "currentEnrolment": 101,
         "maxEnrolment": 140,
         "subTitle": "",
         "cancelInd": "N",
@@ -265,6 +169,102 @@
         "linkedMeetingSections": null
       },
       {
+        "name": "TUT0102",
+        "type": "Tutorial",
+        "teachMethod": "TUT",
+        "sectionNumber": "0102",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 46800000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 54000000
+            },
+            "building": {
+              "buildingCode": "GB",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494473",
+              "buildingName": null
+            },
+            "sessionCode": "20271",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Liyang",
+            "lastName": "Dai-Hattrick"
+          }
+        ],
+        "currentEnrolment": 46,
+        "maxEnrolment": 70,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20271",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 70,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
         "name": "TUT0101",
         "type": "Tutorial",
         "teachMethod": "TUT",
@@ -298,7 +298,7 @@
             "lastName": "Dai-Hattrick"
           }
         ],
-        "currentEnrolment": 54,
+        "currentEnrolment": 55,
         "maxEnrolment": 70,
         "subTitle": "",
         "cancelInd": "N",
@@ -389,7 +389,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:52.157",
+    "created": "2026-09-09@04:06:36.918",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -430,213 +430,21 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   },
   {
-    "id": "6a1ec6a709e725750aea5564",
-    "name": "Organic Materials Chemistry and Properties",
+    "id": "6a1ec6a709e725750aea555f",
+    "name": "Diffusion and Kinetics",
     "ucName": null,
-    "code": "MSE245H1",
+    "code": "MSE217H1",
     "sectionCode": "S",
     "campus": "St. George",
     "sessions": [
       "20271"
     ],
     "sections": [
-      {
-        "name": "PRA0101",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 1,
-              "millisofday": 32400000
-            },
-            "end": {
-              "day": 1,
-              "millisofday": 43200000
-            },
-            "building": {
-              "buildingCode": "LM",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494502",
-              "buildingName": null
-            },
-            "sessionCode": "20271",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Christopher",
-            "lastName": "Sutton"
-          }
-        ],
-        "currentEnrolment": 77,
-        "maxEnrolment": 96,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20271",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 96,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "TUT0101",
-        "type": "Tutorial",
-        "teachMethod": "TUT",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 4,
-              "millisofday": 50400000
-            },
-            "end": {
-              "day": 4,
-              "millisofday": 54000000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20271",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Christopher",
-            "lastName": "Sutton"
-          }
-        ],
-        "currentEnrolment": 77,
-        "maxEnrolment": 96,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20271",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 96,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
       {
         "name": "LEC0101",
         "type": "Lecture",
@@ -646,11 +454,11 @@
           {
             "start": {
               "day": 2,
-              "millisofday": 54000000
+              "millisofday": 32400000
             },
             "end": {
               "day": 2,
-              "millisofday": 61200000
+              "millisofday": 39600000
             },
             "building": {
               "buildingCode": "GB",
@@ -666,11 +474,11 @@
           {
             "start": {
               "day": 4,
-              "millisofday": 57600000
+              "millisofday": 36000000
             },
             "end": {
               "day": 4,
-              "millisofday": 61200000
+              "millisofday": 39600000
             },
             "building": {
               "buildingCode": "GB",
@@ -687,11 +495,11 @@
         "firstMeeting": null,
         "instructors": [
           {
-            "firstName": "Christopher",
-            "lastName": "Sutton"
+            "firstName": "Tom",
+            "lastName": "Coyle"
           }
         ],
-        "currentEnrolment": 77,
+        "currentEnrolment": 73,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -752,14 +560,110 @@
           }
         ],
         "linkedMeetingSections": null
+      },
+      {
+        "name": "TUT0101",
+        "type": "Tutorial",
+        "teachMethod": "TUT",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 64800000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 72000000
+            },
+            "building": {
+              "buildingCode": "SF",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494481",
+              "buildingName": null
+            },
+            "sessionCode": "20271",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Tom",
+            "lastName": "Coyle"
+          }
+        ],
+        "currentEnrolment": 73,
+        "maxEnrolment": 96,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20271",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 96,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
       }
     ],
     "duration": null,
     "cmCourseInfo": {
-      "description": "Introduction to organic chemistry and organic materials. Naming, bonding and shapes of organic molecules. Properties and reactions of organic compounds. Key mechanisms including electrophilic addition, nucleophilic aliphatic substitution, \u03b2-elimination reactions and electrophilic aromatic substitution. Syntheses of polymers (step-growth and radical chain growth polymerization) and processing methods. Structure and properties of polymeric materials (amorphous, crystalline, elastomeric). Thermo-transition properties of polymers. Life-cycle of polymers, mechanisms of degradation and strategies of polymer recycle. Hands-on organic syntheses and separation experiments.",
-      "title": "Organic Materials Chemistry and Properties",
+      "description": "Topics in the Diffusion part include: diffusion mechanisms, steady-state and non-steady-state diffusion, Fick's first and second laws, Kirkendall effect, short-circuit diffusions, diffusion in metallic, polymeric, ionic and semiconducting materials, Darken's first and second equations, marker's velocity, thin film diffusion. Topics in the Kinetics part include: experimental rate laws, reaction orders, determination of order of reaction (integral, differential, and half-life methods), Arrhenius equation, elucidation of mechanism, fluid-particle reactions, kinetic models (progressive-conversion, unreacted core, shrinking core model), reactor design (batch, plug flow, and mixed flow reactors).",
+      "title": "Diffusion and Kinetics",
       "levelOfInstruction": "undergraduate",
-      "prerequisitesText": "<p>MSE244H1</p>",
+      "prerequisitesText": "<p>APS110H1/MSE160H1; ESC195H1/MAT187H1</p>",
       "corequisitesText": "",
       "exclusionsText": "",
       "recommendedPreparation": "",
@@ -777,7 +681,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:52.157",
+    "created": "2026-09-09@04:06:36.919",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -818,8 +722,8 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   },
   {
@@ -867,7 +771,7 @@
             "lastName": "Hattrick-Simpers"
           }
         ],
-        "currentEnrolment": 74,
+        "currentEnrolment": 75,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -983,7 +887,7 @@
             "lastName": "Hattrick-Simpers"
           }
         ],
-        "currentEnrolment": 75,
+        "currentEnrolment": 76,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -1079,7 +983,7 @@
             "lastName": "Hattrick-Simpers"
           }
         ],
-        "currentEnrolment": 75,
+        "currentEnrolment": 76,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -1165,7 +1069,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:52.157",
+    "created": "2026-09-09@04:06:36.919",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -1206,15 +1110,15 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   },
   {
-    "id": "6a1ec6a709e725750aea555f",
-    "name": "Diffusion and Kinetics",
+    "id": "6a1ec6a709e725750aea5564",
+    "name": "Organic Materials Chemistry and Properties",
     "ucName": null,
-    "code": "MSE217H1",
+    "code": "MSE245H1",
     "sectionCode": "S",
     "campus": "St. George",
     "sessions": [
@@ -1229,18 +1133,18 @@
         "meetingTimes": [
           {
             "start": {
-              "day": 3,
-              "millisofday": 64800000
+              "day": 4,
+              "millisofday": 50400000
             },
             "end": {
-              "day": 3,
-              "millisofday": 72000000
+              "day": 4,
+              "millisofday": 54000000
             },
             "building": {
-              "buildingCode": "SF",
+              "buildingCode": "BA",
               "buildingRoomNumber": "",
               "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494481",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
               "buildingName": null
             },
             "sessionCode": "20271",
@@ -1251,11 +1155,107 @@
         "firstMeeting": null,
         "instructors": [
           {
-            "firstName": "Tom",
-            "lastName": "Coyle"
+            "firstName": "Christopher",
+            "lastName": "Sutton"
           }
         ],
-        "currentEnrolment": 72,
+        "currentEnrolment": 78,
+        "maxEnrolment": 96,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20271",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 96,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "PRA0101",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 1,
+              "millisofday": 32400000
+            },
+            "end": {
+              "day": 1,
+              "millisofday": 43200000
+            },
+            "building": {
+              "buildingCode": "LM",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494502",
+              "buildingName": null
+            },
+            "sessionCode": "20271",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Christopher",
+            "lastName": "Sutton"
+          }
+        ],
+        "currentEnrolment": 78,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -1326,11 +1326,11 @@
           {
             "start": {
               "day": 2,
-              "millisofday": 32400000
+              "millisofday": 54000000
             },
             "end": {
               "day": 2,
-              "millisofday": 39600000
+              "millisofday": 61200000
             },
             "building": {
               "buildingCode": "GB",
@@ -1346,11 +1346,11 @@
           {
             "start": {
               "day": 4,
-              "millisofday": 36000000
+              "millisofday": 57600000
             },
             "end": {
               "day": 4,
-              "millisofday": 39600000
+              "millisofday": 61200000
             },
             "building": {
               "buildingCode": "GB",
@@ -1367,11 +1367,11 @@
         "firstMeeting": null,
         "instructors": [
           {
-            "firstName": "Tom",
-            "lastName": "Coyle"
+            "firstName": "Christopher",
+            "lastName": "Sutton"
           }
         ],
-        "currentEnrolment": 72,
+        "currentEnrolment": 78,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -1436,10 +1436,10 @@
     ],
     "duration": null,
     "cmCourseInfo": {
-      "description": "Topics in the Diffusion part include: diffusion mechanisms, steady-state and non-steady-state diffusion, Fick's first and second laws, Kirkendall effect, short-circuit diffusions, diffusion in metallic, polymeric, ionic and semiconducting materials, Darken's first and second equations, marker's velocity, thin film diffusion. Topics in the Kinetics part include: experimental rate laws, reaction orders, determination of order of reaction (integral, differential, and half-life methods), Arrhenius equation, elucidation of mechanism, fluid-particle reactions, kinetic models (progressive-conversion, unreacted core, shrinking core model), reactor design (batch, plug flow, and mixed flow reactors).",
-      "title": "Diffusion and Kinetics",
+      "description": "Introduction to organic chemistry and organic materials. Naming, bonding and shapes of organic molecules. Properties and reactions of organic compounds. Key mechanisms including electrophilic addition, nucleophilic aliphatic substitution, \u03b2-elimination reactions and electrophilic aromatic substitution. Syntheses of polymers (step-growth and radical chain growth polymerization) and processing methods. Structure and properties of polymeric materials (amorphous, crystalline, elastomeric). Thermo-transition properties of polymers. Life-cycle of polymers, mechanisms of degradation and strategies of polymer recycle. Hands-on organic syntheses and separation experiments.",
+      "title": "Organic Materials Chemistry and Properties",
       "levelOfInstruction": "undergraduate",
-      "prerequisitesText": "<p>APS110H1/MSE160H1; ESC195H1/MAT187H1</p>",
+      "prerequisitesText": "<p>MSE244H1</p>",
       "corequisitesText": "",
       "exclusionsText": "",
       "recommendedPreparation": "",
@@ -1457,7 +1457,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:52.157",
+    "created": "2026-09-09@04:06:36.919",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -1498,8 +1498,8 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   },
   {
@@ -1529,10 +1529,10 @@
               "millisofday": 46800000
             },
             "building": {
-              "buildingCode": "GB",
+              "buildingCode": "MY",
               "buildingRoomNumber": "",
               "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494473",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494495",
               "buildingName": null
             },
             "sessionCode": "20271",
@@ -1549,10 +1549,10 @@
               "millisofday": 46800000
             },
             "building": {
-              "buildingCode": "MY",
+              "buildingCode": "GB",
               "buildingRoomNumber": "",
               "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494495",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494473",
               "buildingName": null
             },
             "sessionCode": "20271",
@@ -1567,7 +1567,7 @@
             "lastName": "Ramsay"
           }
         ],
-        "currentEnrolment": 70,
+        "currentEnrolment": 71,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -1663,7 +1663,7 @@
             "lastName": "Ramsay"
           }
         ],
-        "currentEnrolment": 70,
+        "currentEnrolment": 71,
         "maxEnrolment": 96,
         "subTitle": "",
         "cancelInd": "N",
@@ -1749,7 +1749,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:52.158",
+    "created": "2026-09-09@04:06:36.919",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -1790,8 +1790,8 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   }
 ]
