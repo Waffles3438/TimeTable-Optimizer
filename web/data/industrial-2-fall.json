@@ -11,233 +11,6 @@
     ],
     "sections": [
       {
-        "name": "LEC0101",
-        "type": "Lecture",
-        "teachMethod": "LEC",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 1,
-              "millisofday": 54000000
-            },
-            "end": {
-              "day": 1,
-              "millisofday": 57600000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          },
-          {
-            "start": {
-              "day": 3,
-              "millisofday": 61200000
-            },
-            "end": {
-              "day": 3,
-              "millisofday": 64800000
-            },
-            "building": {
-              "buildingCode": "SF",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494481",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          },
-          {
-            "start": {
-              "day": 4,
-              "millisofday": 57600000
-            },
-            "end": {
-              "day": 4,
-              "millisofday": 61200000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Maxime",
-            "lastName": "Van de Moortel"
-          }
-        ],
-        "currentEnrolment": 108,
-        "maxEnrolment": 120,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "Y",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "",
-              "name": ""
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "",
-              "name": ""
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "APSC",
-              "name": "Faculty of Applied Science & Engineering"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 120,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "TUT0102",
-        "type": "Tutorial",
-        "teachMethod": "TUT",
-        "sectionNumber": "0102",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 2,
-              "millisofday": 32400000
-            },
-            "end": {
-              "day": 2,
-              "millisofday": 39600000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 35,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
         "name": "TUT0101",
         "type": "Tutorial",
         "teachMethod": "TUT",
@@ -418,6 +191,233 @@
           }
         ],
         "linkedMeetingSections": null
+      },
+      {
+        "name": "TUT0102",
+        "type": "Tutorial",
+        "teachMethod": "TUT",
+        "sectionNumber": "0102",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 2,
+              "millisofday": 32400000
+            },
+            "end": {
+              "day": 2,
+              "millisofday": 39600000
+            },
+            "building": {
+              "buildingCode": "BA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 36,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "LEC0101",
+        "type": "Lecture",
+        "teachMethod": "LEC",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 1,
+              "millisofday": 54000000
+            },
+            "end": {
+              "day": 1,
+              "millisofday": 57600000
+            },
+            "building": {
+              "buildingCode": "BA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          },
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 61200000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 64800000
+            },
+            "building": {
+              "buildingCode": "SF",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494481",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          },
+          {
+            "start": {
+              "day": 4,
+              "millisofday": 57600000
+            },
+            "end": {
+              "day": 4,
+              "millisofday": 61200000
+            },
+            "building": {
+              "buildingCode": "BA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Maxime",
+            "lastName": "Van de Moortel"
+          }
+        ],
+        "currentEnrolment": 109,
+        "maxEnrolment": 120,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "Y",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "",
+              "name": ""
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "",
+              "name": ""
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "APSC",
+              "name": "Faculty of Applied Science & Engineering"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 120,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
       }
     ],
     "duration": null,
@@ -443,7 +443,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:48.701",
+    "created": "2026-09-09@04:06:34.418",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -505,8 +505,8 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   },
   {
@@ -520,142 +520,6 @@
       "20269"
     ],
     "sections": [
-      {
-        "name": "LEC0101",
-        "type": "Lecture",
-        "teachMethod": "LEC",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 1,
-              "millisofday": 57600000
-            },
-            "end": {
-              "day": 1,
-              "millisofday": 61200000
-            },
-            "building": {
-              "buildingCode": "MC",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494474",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          },
-          {
-            "start": {
-              "day": 3,
-              "millisofday": 57600000
-            },
-            "end": {
-              "day": 3,
-              "millisofday": 61200000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          },
-          {
-            "start": {
-              "day": 5,
-              "millisofday": 57600000
-            },
-            "end": {
-              "day": 5,
-              "millisofday": 61200000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Janet",
-            "lastName": "Lam"
-          }
-        ],
-        "currentEnrolment": 110,
-        "maxEnrolment": 120,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "Y",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "",
-              "name": ""
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "",
-              "name": ""
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "APSC",
-              "name": "Faculty of Applied Science & Engineering"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 120,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
       {
         "name": "TUT0102",
         "type": "Tutorial",
@@ -685,7 +549,7 @@
         ],
         "firstMeeting": null,
         "instructors": [],
-        "currentEnrolment": 58,
+        "currentEnrolment": 59,
         "maxEnrolment": 59,
         "subTitle": "",
         "cancelInd": "N",
@@ -837,6 +701,142 @@
           }
         ],
         "linkedMeetingSections": null
+      },
+      {
+        "name": "LEC0101",
+        "type": "Lecture",
+        "teachMethod": "LEC",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 1,
+              "millisofday": 57600000
+            },
+            "end": {
+              "day": 1,
+              "millisofday": 61200000
+            },
+            "building": {
+              "buildingCode": "MC",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494474",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          },
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 57600000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 61200000
+            },
+            "building": {
+              "buildingCode": "BA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          },
+          {
+            "start": {
+              "day": 5,
+              "millisofday": 57600000
+            },
+            "end": {
+              "day": 5,
+              "millisofday": 61200000
+            },
+            "building": {
+              "buildingCode": "BA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Janet",
+            "lastName": "Lam"
+          }
+        ],
+        "currentEnrolment": 111,
+        "maxEnrolment": 120,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "Y",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "",
+              "name": ""
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "",
+              "name": ""
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "APSC",
+              "name": "Faculty of Applied Science & Engineering"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 120,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
       }
     ],
     "duration": null,
@@ -862,7 +862,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:48.703",
+    "created": "2026-09-09@04:06:34.421",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -888,1098 +888,8 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
-    "primaryWaitlistable": false
-  },
-  {
-    "id": "6a1ec6a709e725750aea54f5",
-    "name": "Deterministic Operations Research",
-    "ucName": null,
-    "code": "MIE262H1",
-    "sectionCode": "F",
-    "campus": "St. George",
-    "sessions": [
-      "20269"
-    ],
-    "sections": [
-      {
-        "name": "PRA0101",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 2,
-              "millisofday": 46800000
-            },
-            "end": {
-              "day": 2,
-              "millisofday": 54000000
-            },
-            "building": {
-              "buildingCode": "RS",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494478",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 37,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "LEC0101",
-        "type": "Lecture",
-        "teachMethod": "LEC",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 1,
-              "millisofday": 43200000
-            },
-            "end": {
-              "day": 1,
-              "millisofday": 46800000
-            },
-            "building": {
-              "buildingCode": "NL",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494486",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          },
-          {
-            "start": {
-              "day": 3,
-              "millisofday": 39600000
-            },
-            "end": {
-              "day": 3,
-              "millisofday": 43200000
-            },
-            "building": {
-              "buildingCode": "MC",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494474",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          },
-          {
-            "start": {
-              "day": 4,
-              "millisofday": 43200000
-            },
-            "end": {
-              "day": 4,
-              "millisofday": 46800000
-            },
-            "building": {
-              "buildingCode": "MC",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494474",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Carolyn",
-            "lastName": "Busby"
-          }
-        ],
-        "currentEnrolment": 116,
-        "maxEnrolment": 120,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "Y",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "",
-              "name": ""
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "",
-              "name": ""
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "APSC",
-              "name": "Faculty of Applied Science & Engineering"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 120,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "PRA0103",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0103",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 3,
-              "millisofday": 32400000
-            },
-            "end": {
-              "day": 3,
-              "millisofday": 39600000
-            },
-            "building": {
-              "buildingCode": "MB",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 40,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "TUT0102",
-        "type": "Tutorial",
-        "teachMethod": "TUT",
-        "sectionNumber": "0102",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 3,
-              "millisofday": 54000000
-            },
-            "end": {
-              "day": 3,
-              "millisofday": 57600000
-            },
-            "building": {
-              "buildingCode": "GB",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494473",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 59,
-        "maxEnrolment": 60,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 60,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "TUT0101",
-        "type": "Tutorial",
-        "teachMethod": "TUT",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 2,
-              "millisofday": 43200000
-            },
-            "end": {
-              "day": 2,
-              "millisofday": 46800000
-            },
-            "building": {
-              "buildingCode": "HA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494475",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 57,
-        "maxEnrolment": 60,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 60,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "PRA0102",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0102",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 5,
-              "millisofday": 32400000
-            },
-            "end": {
-              "day": 5,
-              "millisofday": 39600000
-            },
-            "building": {
-              "buildingCode": "RS",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494478",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 39,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      }
-    ],
-    "duration": null,
-    "cmCourseInfo": {
-      "description": "Introduction to deterministic operations research. Formulations of mathematical models to improve decision making; linear and integer programming; the simplex method; the revised simplex method; branch-and-bound methods; sensitivity analysis; duality; network models; network simplex method; Dijkstra's algorithm; Prim\u2019s and Kruskal\u2019s algorithms; deterministic dynamic programming; applications of deterministic OR in machine learning; common metaheuristics.",
-      "title": " Deterministic Operations Research",
-      "levelOfInstruction": "undergraduate",
-      "prerequisitesText": "<p>ESC194H1/MAT186H1, MAT185H1/MAT188H1</p>",
-      "corequisitesText": "",
-      "exclusionsText": "",
-      "recommendedPreparation": "",
-      "note": null,
-      "division": "Applied Science & Engineering, Faculty of",
-      "breadthRequirements": null,
-      "distributionRequirements": null,
-      "publicationSections": [
-        "Industrial Engineering"
-      ],
-      "cmPublicationSections": [
-        {
-          "section": "Industrial Engineering",
-          "subSections": null
-        }
-      ]
-    },
-    "created": "2026-09-07@04:06:48.704",
-    "modified": null,
-    "lastSaved": 0,
-    "primaryTeachMethod": "LEC",
-    "faculty": {
-      "code": "APSC",
-      "name": "Faculty of Applied Science & Engineering"
-    },
-    "coSec": {
-      "code": "",
-      "name": null
-    },
-    "department": {
-      "code": "MIE",
-      "name": "Department of Mechanical & Industrial Engineering"
-    },
-    "title": null,
-    "maxCredit": 0.5,
-    "minCredit": 0.5,
-    "breadths": [],
-    "notes": [],
-    "cancelInd": "",
-    "subscriptionTtb": false,
-    "subscriptionOpenData": false,
-    "tb1Active": false,
-    "tb2Active": false,
     "primaryFull": false,
-    "fullyOnline": false,
-    "primaryWaitlistable": false
-  },
-  {
-    "id": "6a1ec6a709e725750aea54f4",
-    "name": "Fundamentals of Object Oriented Programming",
-    "ucName": null,
-    "code": "MIE250H1",
-    "sectionCode": "F",
-    "campus": "St. George",
-    "sessions": [
-      "20269"
-    ],
-    "sections": [
-      {
-        "name": "LEC0101",
-        "type": "Lecture",
-        "teachMethod": "LEC",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 5,
-              "millisofday": 46800000
-            },
-            "end": {
-              "day": 5,
-              "millisofday": 54000000
-            },
-            "building": {
-              "buildingCode": "BA",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [
-          {
-            "firstName": "Justin",
-            "lastName": "Beland"
-          }
-        ],
-        "currentEnrolment": 110,
-        "maxEnrolment": 120,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "Y",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "",
-              "name": ""
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "",
-              "name": ""
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "APSC",
-              "name": "Faculty of Applied Science & Engineering"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 120,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "PRA0103",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0103",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 2,
-              "millisofday": 43200000
-            },
-            "end": {
-              "day": 2,
-              "millisofday": 54000000
-            },
-            "building": {
-              "buildingCode": "MB",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 38,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "PRA0102",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0102",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 2,
-              "millisofday": 32400000
-            },
-            "end": {
-              "day": 2,
-              "millisofday": 43200000
-            },
-            "building": {
-              "buildingCode": "MB",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 35,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      },
-      {
-        "name": "PRA0101",
-        "type": "Practical",
-        "teachMethod": "PRA",
-        "sectionNumber": "0101",
-        "meetingTimes": [
-          {
-            "start": {
-              "day": 5,
-              "millisofday": 36000000
-            },
-            "end": {
-              "day": 5,
-              "millisofday": 46800000
-            },
-            "building": {
-              "buildingCode": "MB",
-              "buildingRoomNumber": "",
-              "buildingRoomSuffix": "",
-              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
-              "buildingName": null
-            },
-            "sessionCode": "20269",
-            "repetition": "WEEKLY",
-            "repetitionTime": "ONCE_A_WEEK"
-          }
-        ],
-        "firstMeeting": null,
-        "instructors": [],
-        "currentEnrolment": 37,
-        "maxEnrolment": 40,
-        "subTitle": "",
-        "cancelInd": "N",
-        "waitlistInd": "N",
-        "deliveryModes": [
-          {
-            "session": "20269",
-            "mode": "INPER"
-          }
-        ],
-        "currentWaitlist": 0,
-        "enrolmentInd": "",
-        "tbaInd": "N",
-        "openLimitInd": "N",
-        "notes": [],
-        "enrolmentControls": [
-          {
-            "yearOfStudy": "*",
-            "post": {
-              "code": "*",
-              "name": "All"
-            },
-            "subject": {
-              "code": "*",
-              "name": "All"
-            },
-            "subjectPost": {
-              "code": "*",
-              "name": "All"
-            },
-            "typeOfProgram": {
-              "code": "*",
-              "name": "All"
-            },
-            "designation": {
-              "code": "*",
-              "name": "All"
-            },
-            "primaryOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "associatedOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "secondOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "adminOrg": {
-              "code": "*",
-              "name": "All"
-            },
-            "collaborativeOrgGroupCode": "*",
-            "quantity": 40,
-            "sequence": 1
-          }
-        ],
-        "linkedMeetingSections": null
-      }
-    ],
-    "duration": null,
-    "cmCourseInfo": {
-      "description": "Introduction to object-oriented programming using the Java programming language with heavy emphasis on practical application; variable types; console and file input/output; arithmetic; logical expressions; control structures; arrays; modularity; functions; classes and objects; access modifiers; inheritance; polymorphism; common data structures; regular expressions; GitHub; Java Swing; unit testing; introduction to complexity analysis; introduction to parallel computing; design and implementation of programs relevant to industrial engineering needs according to strict specifications.",
-      "title": "Fundamentals of Object Oriented Programming",
-      "levelOfInstruction": "undergraduate",
-      "prerequisitesText": "APS105H1/APS106H1 or equivalent",
-      "corequisitesText": "",
-      "exclusionsText": "",
-      "recommendedPreparation": "",
-      "note": null,
-      "division": "Applied Science & Engineering, Faculty of",
-      "breadthRequirements": null,
-      "distributionRequirements": null,
-      "publicationSections": [
-        "Industrial Engineering"
-      ],
-      "cmPublicationSections": [
-        {
-          "section": "Industrial Engineering",
-          "subSections": null
-        }
-      ]
-    },
-    "created": "2026-09-07@04:06:48.704",
-    "modified": null,
-    "lastSaved": 0,
-    "primaryTeachMethod": "LEC",
-    "faculty": {
-      "code": "APSC",
-      "name": "Faculty of Applied Science & Engineering"
-    },
-    "coSec": {
-      "code": "",
-      "name": null
-    },
-    "department": {
-      "code": "MIE",
-      "name": "Department of Mechanical & Industrial Engineering"
-    },
-    "title": null,
-    "maxCredit": 0.5,
-    "minCredit": 0.5,
-    "breadths": [],
-    "notes": [],
-    "cancelInd": "",
-    "subscriptionTtb": false,
-    "subscriptionOpenData": false,
-    "tb1Active": false,
-    "tb2Active": false,
-    "primaryFull": false,
-    "fullyOnline": false,
     "primaryWaitlistable": false
   },
   {
@@ -2071,7 +981,7 @@
             "lastName": "Qu"
           }
         ],
-        "currentEnrolment": 109,
+        "currentEnrolment": 110,
         "maxEnrolment": 120,
         "subTitle": "",
         "cancelInd": "N",
@@ -2162,7 +1072,7 @@
         ],
         "firstMeeting": null,
         "instructors": [],
-        "currentEnrolment": 55,
+        "currentEnrolment": 56,
         "maxEnrolment": 60,
         "subTitle": "",
         "cancelInd": "N",
@@ -2344,7 +1254,7 @@
         }
       ]
     },
-    "created": "2026-09-07@04:06:48.704",
+    "created": "2026-09-09@04:06:34.421",
     "modified": null,
     "lastSaved": 0,
     "primaryTeachMethod": "LEC",
@@ -2370,8 +1280,1098 @@
     "subscriptionOpenData": false,
     "tb1Active": false,
     "tb2Active": false,
-    "primaryFull": false,
     "fullyOnline": false,
+    "primaryFull": false,
+    "primaryWaitlistable": false
+  },
+  {
+    "id": "6a1ec6a709e725750aea54f4",
+    "name": "Fundamentals of Object Oriented Programming",
+    "ucName": null,
+    "code": "MIE250H1",
+    "sectionCode": "F",
+    "campus": "St. George",
+    "sessions": [
+      "20269"
+    ],
+    "sections": [
+      {
+        "name": "PRA0101",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 5,
+              "millisofday": 36000000
+            },
+            "end": {
+              "day": 5,
+              "millisofday": 46800000
+            },
+            "building": {
+              "buildingCode": "MB",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 37,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "LEC0101",
+        "type": "Lecture",
+        "teachMethod": "LEC",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 5,
+              "millisofday": 46800000
+            },
+            "end": {
+              "day": 5,
+              "millisofday": 54000000
+            },
+            "building": {
+              "buildingCode": "BA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494470",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Justin",
+            "lastName": "Beland"
+          }
+        ],
+        "currentEnrolment": 111,
+        "maxEnrolment": 120,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "Y",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "",
+              "name": ""
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "",
+              "name": ""
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "APSC",
+              "name": "Faculty of Applied Science & Engineering"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 120,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "PRA0103",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0103",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 2,
+              "millisofday": 43200000
+            },
+            "end": {
+              "day": 2,
+              "millisofday": 54000000
+            },
+            "building": {
+              "buildingCode": "MB",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 39,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "PRA0102",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0102",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 2,
+              "millisofday": 32400000
+            },
+            "end": {
+              "day": 2,
+              "millisofday": 43200000
+            },
+            "building": {
+              "buildingCode": "MB",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 35,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      }
+    ],
+    "duration": null,
+    "cmCourseInfo": {
+      "description": "Introduction to object-oriented programming using the Java programming language with heavy emphasis on practical application; variable types; console and file input/output; arithmetic; logical expressions; control structures; arrays; modularity; functions; classes and objects; access modifiers; inheritance; polymorphism; common data structures; regular expressions; GitHub; Java Swing; unit testing; introduction to complexity analysis; introduction to parallel computing; design and implementation of programs relevant to industrial engineering needs according to strict specifications.",
+      "title": "Fundamentals of Object Oriented Programming",
+      "levelOfInstruction": "undergraduate",
+      "prerequisitesText": "APS105H1/APS106H1 or equivalent",
+      "corequisitesText": "",
+      "exclusionsText": "",
+      "recommendedPreparation": "",
+      "note": null,
+      "division": "Applied Science & Engineering, Faculty of",
+      "breadthRequirements": null,
+      "distributionRequirements": null,
+      "publicationSections": [
+        "Industrial Engineering"
+      ],
+      "cmPublicationSections": [
+        {
+          "section": "Industrial Engineering",
+          "subSections": null
+        }
+      ]
+    },
+    "created": "2026-09-09@04:06:34.421",
+    "modified": null,
+    "lastSaved": 0,
+    "primaryTeachMethod": "LEC",
+    "faculty": {
+      "code": "APSC",
+      "name": "Faculty of Applied Science & Engineering"
+    },
+    "coSec": {
+      "code": "",
+      "name": null
+    },
+    "department": {
+      "code": "MIE",
+      "name": "Department of Mechanical & Industrial Engineering"
+    },
+    "title": null,
+    "maxCredit": 0.5,
+    "minCredit": 0.5,
+    "breadths": [],
+    "notes": [],
+    "cancelInd": "",
+    "subscriptionTtb": false,
+    "subscriptionOpenData": false,
+    "tb1Active": false,
+    "tb2Active": false,
+    "fullyOnline": false,
+    "primaryFull": false,
+    "primaryWaitlistable": false
+  },
+  {
+    "id": "6a1ec6a709e725750aea54f5",
+    "name": "Deterministic Operations Research",
+    "ucName": null,
+    "code": "MIE262H1",
+    "sectionCode": "F",
+    "campus": "St. George",
+    "sessions": [
+      "20269"
+    ],
+    "sections": [
+      {
+        "name": "PRA0102",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0102",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 5,
+              "millisofday": 32400000
+            },
+            "end": {
+              "day": 5,
+              "millisofday": 39600000
+            },
+            "building": {
+              "buildingCode": "RS",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494478",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 39,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "TUT0101",
+        "type": "Tutorial",
+        "teachMethod": "TUT",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 2,
+              "millisofday": 43200000
+            },
+            "end": {
+              "day": 2,
+              "millisofday": 46800000
+            },
+            "building": {
+              "buildingCode": "HA",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494475",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 58,
+        "maxEnrolment": 60,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 60,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "TUT0102",
+        "type": "Tutorial",
+        "teachMethod": "TUT",
+        "sectionNumber": "0102",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 54000000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 57600000
+            },
+            "building": {
+              "buildingCode": "GB",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494473",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 59,
+        "maxEnrolment": 60,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 60,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "PRA0101",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 2,
+              "millisofday": 46800000
+            },
+            "end": {
+              "day": 2,
+              "millisofday": 54000000
+            },
+            "building": {
+              "buildingCode": "RS",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494478",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 38,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "LEC0101",
+        "type": "Lecture",
+        "teachMethod": "LEC",
+        "sectionNumber": "0101",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 1,
+              "millisofday": 43200000
+            },
+            "end": {
+              "day": 1,
+              "millisofday": 46800000
+            },
+            "building": {
+              "buildingCode": "NL",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494486",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          },
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 39600000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 43200000
+            },
+            "building": {
+              "buildingCode": "MC",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494474",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          },
+          {
+            "start": {
+              "day": 4,
+              "millisofday": 43200000
+            },
+            "end": {
+              "day": 4,
+              "millisofday": 46800000
+            },
+            "building": {
+              "buildingCode": "MC",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494474",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [
+          {
+            "firstName": "Carolyn",
+            "lastName": "Busby"
+          }
+        ],
+        "currentEnrolment": 117,
+        "maxEnrolment": 120,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "Y",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "",
+              "name": ""
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "",
+              "name": ""
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "APSC",
+              "name": "Faculty of Applied Science & Engineering"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 120,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      },
+      {
+        "name": "PRA0103",
+        "type": "Practical",
+        "teachMethod": "PRA",
+        "sectionNumber": "0103",
+        "meetingTimes": [
+          {
+            "start": {
+              "day": 3,
+              "millisofday": 32400000
+            },
+            "end": {
+              "day": 3,
+              "millisofday": 39600000
+            },
+            "building": {
+              "buildingCode": "MB",
+              "buildingRoomNumber": "",
+              "buildingRoomSuffix": "",
+              "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
+              "buildingName": null
+            },
+            "sessionCode": "20269",
+            "repetition": "WEEKLY",
+            "repetitionTime": "ONCE_A_WEEK"
+          }
+        ],
+        "firstMeeting": null,
+        "instructors": [],
+        "currentEnrolment": 40,
+        "maxEnrolment": 40,
+        "subTitle": "",
+        "cancelInd": "N",
+        "waitlistInd": "N",
+        "deliveryModes": [
+          {
+            "session": "20269",
+            "mode": "INPER"
+          }
+        ],
+        "currentWaitlist": 0,
+        "enrolmentInd": "",
+        "tbaInd": "N",
+        "openLimitInd": "N",
+        "notes": [],
+        "enrolmentControls": [
+          {
+            "yearOfStudy": "*",
+            "post": {
+              "code": "*",
+              "name": "All"
+            },
+            "subject": {
+              "code": "*",
+              "name": "All"
+            },
+            "subjectPost": {
+              "code": "*",
+              "name": "All"
+            },
+            "typeOfProgram": {
+              "code": "*",
+              "name": "All"
+            },
+            "designation": {
+              "code": "*",
+              "name": "All"
+            },
+            "primaryOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "associatedOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "secondOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "adminOrg": {
+              "code": "*",
+              "name": "All"
+            },
+            "collaborativeOrgGroupCode": "*",
+            "quantity": 40,
+            "sequence": 1
+          }
+        ],
+        "linkedMeetingSections": null
+      }
+    ],
+    "duration": null,
+    "cmCourseInfo": {
+      "description": "Introduction to deterministic operations research. Formulations of mathematical models to improve decision making; linear and integer programming; the simplex method; the revised simplex method; branch-and-bound methods; sensitivity analysis; duality; network models; network simplex method; Dijkstra's algorithm; Prim\u2019s and Kruskal\u2019s algorithms; deterministic dynamic programming; applications of deterministic OR in machine learning; common metaheuristics.",
+      "title": " Deterministic Operations Research",
+      "levelOfInstruction": "undergraduate",
+      "prerequisitesText": "<p>ESC194H1/MAT186H1, MAT185H1/MAT188H1</p>",
+      "corequisitesText": "",
+      "exclusionsText": "",
+      "recommendedPreparation": "",
+      "note": null,
+      "division": "Applied Science & Engineering, Faculty of",
+      "breadthRequirements": null,
+      "distributionRequirements": null,
+      "publicationSections": [
+        "Industrial Engineering"
+      ],
+      "cmPublicationSections": [
+        {
+          "section": "Industrial Engineering",
+          "subSections": null
+        }
+      ]
+    },
+    "created": "2026-09-09@04:06:34.421",
+    "modified": null,
+    "lastSaved": 0,
+    "primaryTeachMethod": "LEC",
+    "faculty": {
+      "code": "APSC",
+      "name": "Faculty of Applied Science & Engineering"
+    },
+    "coSec": {
+      "code": "",
+      "name": null
+    },
+    "department": {
+      "code": "MIE",
+      "name": "Department of Mechanical & Industrial Engineering"
+    },
+    "title": null,
+    "maxCredit": 0.5,
+    "minCredit": 0.5,
+    "breadths": [],
+    "notes": [],
+    "cancelInd": "",
+    "subscriptionTtb": false,
+    "subscriptionOpenData": false,
+    "tb1Active": false,
+    "tb2Active": false,
+    "fullyOnline": false,
+    "primaryFull": false,
     "primaryWaitlistable": false
   }
 ]

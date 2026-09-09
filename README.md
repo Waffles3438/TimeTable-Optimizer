@@ -1,6 +1,6 @@
-# Timetable Fixer
+# TimeTable Optimizer
 
-Timetable Fixer loads U of T Engineering course sections and generates a clash-free timetable using the existing section and preference optimizer.
+TimeTable Optimizer loads U of T Engineering course sections and generates a clash-free timetable using the existing section and preference optimizer.
 
 ## Supported first-year programs
 

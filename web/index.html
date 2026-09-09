@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Timetable Generator</title>
+  <title>TimeTable Optimizer</title>
   <style>
     :root {
       --bg: #f5f6f8;
@@ -392,7 +392,7 @@
 
 <body>
   <header>
-    <h1>Timetable Fixer</h1>
+    <h1>TimeTable Optimizer</h1>
   </header>
   <main>
     <section class="panel">
@@ -485,6 +485,10 @@
     // courses whose lectures are marked "not worth attending", keyed by course
     // code. When set, none of that course's lectures are placed on the timetable.
     const uselessLec = new Set();
+    // canonical lecture-instructor identities selected by the user, keyed by
+    // course code. This remains in memory while lecture attendance is excluded
+    // so unchecking the exclusion restores the previous preferences.
+    const preferredInstructorsByCode = new Map();
     // per-TUT-section attendance for SELECTED multi-meeting tutorial sections,
     // keyed by "courseCode|secName". Value (when present) is a Set of meeting
     // indices the user will attend; absent means "attend all meetings of the
@@ -651,6 +655,7 @@
     function resetOptimizerState() {
       clearBestSoFar();
       uselessTut.clear(); uselessPra.clear(); uselessLec.clear();
+      preferredInstructorsByCode.clear();
       for (const id of ["optCampus", "optLunch", "optEarly", "optLate"])
         if (document.getElementById(id)) document.getElementById(id).checked = false;
       const lunchWrap = document.getElementById("lunchWrap");
@@ -723,6 +728,59 @@
         "Load courses, then press Optimize to build a timetable.";
     }
 
+    function lectureInstructorChoices(course) {
+      const byIdentity = new Map();
+      for (const section of (course && course.sections) || []) {
+        if (OPTIMIZER.componentType(section) !== "LEC" ||
+          !Array.isArray(section.instructors)) continue;
+        for (const instructor of section.instructors) {
+          const identity = OPTIMIZER.canonicalInstructorIdentity(instructor);
+          if (!identity) continue;
+          const firstName = typeof instructor.firstName === "string"
+            ? instructor.firstName.trim() : "";
+          const lastName = typeof instructor.lastName === "string"
+            ? instructor.lastName.trim() : "";
+          const displayName = `${firstName} ${lastName}`.trim();
+          if (displayName && !byIdentity.has(identity)) byIdentity.set(identity, displayName);
+        }
+      }
+      return Array.from(byIdentity, ([identity, label]) => ({ identity, label }))
+        .sort((left, right) => left.identity < right.identity ? -1 :
+          (left.identity > right.identity ? 1 :
+            (left.label < right.label ? -1 : left.label > right.label ? 1 : 0)));
+    }
+
+    function renderLectureInstructorPreferences(wrap, course) {
+      const choices = lectureInstructorChoices(course);
+      if (choices.length <= 1) return;
+
+      const group = document.createElement("div");
+      group.className = "lec-instructor-group";
+      group.hidden = uselessLec.has(course.code);
+      const heading = document.createElement("div");
+      heading.className = "tm-head";
+      heading.textContent = "Preferred lecture instructors";
+      group.appendChild(heading);
+
+      const selected = preferredInstructorsByCode.get(course.code);
+      for (const choice of choices) {
+        const label = document.createElement("label");
+        label.className = "section lec-instructor-option";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.className = "lecInstructor";
+        input.dataset.code = course.code;
+        input.dataset.instructor = choice.identity;
+        input.checked = selected instanceof Set && selected.has(choice.identity);
+        const name = document.createElement("span");
+        name.textContent = choice.label;
+        label.appendChild(input);
+        label.appendChild(name);
+        group.appendChild(label);
+      }
+      wrap.appendChild(group);
+    }
+
     // Builds (or rebuilds) the left-side course list. Reads uselessTut/uselessPra/
     // uselessLec so the "Not worth attending" checkboxes reflect the current state.
     function renderCourseList() {
@@ -746,6 +804,10 @@
         // Unchecked by default (= lectures ARE worth attending). When checked, none
         // of that course's lectures are placed on the timetable.
         if (c.sections.some(s => s.teachMethod === "LEC")) {
+          const lecHdr = document.createElement("div");
+          lecHdr.className = "tm-head";
+          lecHdr.textContent = "Lectures";
+          wrap.appendChild(lecHdr);
           const lecLbl = document.createElement("label");
           lecLbl.className = "section lec-worth-lbl";
           lecLbl.innerHTML =
@@ -753,6 +815,7 @@
             (uselessLec.has(c.code) ? ` checked` : ``) +
             `> <span>Lectures not worth attending</span>`;
           wrap.appendChild(lecLbl);
+          renderLectureInstructorPreferences(wrap, c);
         }
         // radio groups for PRA and TUT: pick at most one of each to lock.
         // LEC is always randomized and not selectable. Each PRA/TUT section has
@@ -908,6 +971,9 @@
       // survives the next re-render (otherwise the stale state would reappear).
       list.onclick = (e) => {
         const box = e.target;
+        // Instructor preferences are ordinary checkboxes, not section locks;
+        // their change handler below owns the search reset.
+        if (box && box.classList && box.classList.contains("lecInstructor")) return;
         if (box && box.type === "radio" && box._wasChecked) {
           box.checked = false;
           if (box.classList.contains("lecWorth") && box.dataset.code) {
@@ -928,6 +994,23 @@
       // update the corresponding useless* set and re-render.
       list.onchange = (e) => {
         const box = e.target;
+        if (box && box.classList && box.classList.contains("lecInstructor")) {
+          const code = String(box.dataset.code || "");
+          const identity = OPTIMIZER.canonicalPreferredInstructors(
+            box.dataset.instructor || "",
+          )[0];
+          if (!code || !identity) return;
+          let selected = preferredInstructorsByCode.get(code);
+          if (!(selected instanceof Set)) {
+            selected = new Set();
+            preferredInstructorsByCode.set(code, selected);
+          }
+          if (box.checked) selected.add(identity);
+          else selected.delete(identity);
+          if (!selected.size) preferredInstructorsByCode.delete(code);
+          clearBestSoFar();
+          return;
+        }
         if (box && box.classList && box.classList.contains("lecWorth")) {
           const code = box.dataset.code;
           if (box.checked) uselessLec.add(code);
@@ -936,7 +1019,7 @@
           clearBestSoFar(); // lecture attendance changed: restart cumulative search
           return;
         }
-        if (box.classList.contains("praWorth")) {
+        if (box && box.classList && box.classList.contains("praWorth")) {
           const code = box.dataset.code;
           const course = COURSES.find(c => c.code === code);
           const praNames = course.sections
@@ -950,7 +1033,7 @@
           clearBestSoFar(); // practical attendance changed: restart cumulative search
           return;
         }
-        if (box.classList.contains("tutWorth")) {
+        if (box && box.classList && box.classList.contains("tutWorth")) {
           const code = box.dataset.code;
           if (box.checked) uselessTut.add(code);
           else uselessTut.delete(code);
@@ -1001,11 +1084,20 @@
       const attendance = {};
       for (const [key, selected] of tutAttend.entries())
         attendance[key] = Array.from(selected);
+      const preferredInstructors = {};
+      for (const [code, selected] of preferredInstructorsByCode.entries()) {
+        if (uselessLec.has(code)) continue;
+        const canonical = OPTIMIZER.canonicalPreferredInstructors(
+          selected instanceof Set ? Array.from(selected) : selected,
+        );
+        if (canonical.length) preferredInstructors[code] = canonical;
+      }
       return OPTIMIZER.buildCoursePlans(COURSES, {
         locks: locksByCode,
         uselessTut: Array.from(uselessTut),
         uselessPra: Array.from(uselessPra),
         uselessLec: Array.from(uselessLec),
+        preferredInstructors,
         tutAttend: attendance,
       });
     }
@@ -1062,6 +1154,9 @@
         code: String(plan.code),
         name: String(plan.name || plan.code),
         poolTypes: (plan.poolTypes || []).map(String).sort(),
+        preferredInstructors: OPTIMIZER.canonicalPreferredInstructors(
+          plan.preferredInstructors,
+        ),
         locked: (plan.locked || []).map(lock => ({
           tm: String(lock.tm || ""),
           section: OPTIMIZER.sectionSignature(lock.sec || {}),
@@ -1161,7 +1256,8 @@
     }
 
     function pageResultMatchesCourse(actual, expected) {
-      if (!actual || !Array.isArray(actual.pick)) return false;
+      if (!actual || !Array.isArray(actual.pick) || !expected ||
+        (expected.invalidLocks || []).length) return false;
       const expectedTypes = new Map();
       for (const type of expected.poolTypes || []) {
         const normalized = String(type);
@@ -1182,7 +1278,25 @@
       for (const [type, count] of expectedTypes.entries()) {
         if (actualTypes.get(type) !== count) return false;
       }
-      return pageResultHasExactLocks(actual, expected.locked || []);
+      if (!pageResultHasExactLocks(actual, expected.locked || [])) return false;
+
+      // Counts and locks alone do not prove that the worker returned a legal
+      // section. Compare the canonical full candidate signature against the
+      // exact candidates represented by the current locked prefix and combos.
+      const locked = Array.isArray(expected.locked) ? expected.locked : [];
+      const hasActivePool = Array.isArray(expected.poolTypes) &&
+        expected.poolTypes.length > 0;
+      const legalCandidates = hasActivePool
+        ? (Array.isArray(expected.combos) ? expected.combos : [])
+          .filter(combo => Array.isArray(combo))
+          .map(combo => ({
+            code: expected.code,
+            pick: locked.concat(combo),
+          }))
+        : [{ code: expected.code, pick: locked.slice() }];
+      const actualSignature = OPTIMIZER.candidateSignature(actual);
+      return legalCandidates.some(candidate =>
+        OPTIMIZER.candidateSignature(candidate) === actualSignature);
     }
 
     function pageResultMatchesPlans(plan, expectedPlans) {
@@ -1240,6 +1354,79 @@
       // optional field for compatibility, but never accept a stale non-null one.
       return (result.signature === undefined || result.signature === null) &&
         (result.score === undefined || result.score === null);
+    }
+
+    function displayInstructorNames(entry) {
+      const identities = Array.isArray(entry && entry.instructors)
+        ? entry.instructors : [];
+      const known = new Set(identities);
+      const source = entry && entry.sourceSection;
+      const rawInstructors = source && Array.isArray(source.instructors)
+        ? source.instructors : [];
+      const labels = [];
+
+      for (const instructor of rawInstructors) {
+        const identity = OPTIMIZER.canonicalInstructorIdentity(instructor);
+        if (!identity || !known.has(identity)) continue;
+        const firstName = typeof instructor.firstName === "string"
+          ? instructor.firstName.trim() : "";
+        const lastName = typeof instructor.lastName === "string"
+          ? instructor.lastName.trim() : "";
+        const label = `${firstName} ${lastName}`.trim();
+        if (label && !labels.includes(label)) labels.push(label);
+      }
+
+      if (labels.length) return labels.join(", ");
+      return identities.map(identity => identity.split(/\s+/).map(part =>
+        part ? part.charAt(0).toUpperCase() + part.slice(1) : part,
+      ).join(" ")).join(", ");
+    }
+
+    function formatLectureMeeting(entry) {
+      const meeting = entry && entry.meeting;
+      if (!meeting) return "";
+      const startMinutes = Math.floor(Number(meeting.start) / 60000);
+      const endMinutes = Math.floor(Number(meeting.end) / 60000);
+      const dayIndex = Number(meeting.day) - 1;
+      const day = DAYS[dayIndex] || `Day ${meeting.day}`;
+      const time = `${fmt12(Math.floor(startMinutes / 60), startMinutes % 60)}–` +
+        `${fmt12(Math.floor(endMinutes / 60), endMinutes % 60)}`;
+      const instructor = displayInstructorNames(entry);
+      const section = entry.sectionName || "LEC*";
+      return `${section} — ${day} ${time} — ${instructor || "Instructor unknown"}`;
+    }
+
+    function nonPreferredLectureLabels(plan) {
+      const labels = [];
+      for (const course of plan || []) {
+        const preferred = OPTIMIZER.canonicalPreferredInstructors(
+          course && course.preferredInstructors,
+        );
+        if (!preferred.length) continue;
+        const preferredSet = new Set(preferred);
+        let hasKnownInstructor = false;
+        let matched = false;
+        const selectedEntries = [];
+
+        for (const item of (course && course.pick) || []) {
+          const type = item && item.lec ? "LEC" : OPTIMIZER.componentType(
+            item && (item.tm || item.teachMethod || item.sec || item.section),
+          );
+          if (type !== "LEC") continue;
+          for (const entry of OPTIMIZER.lectureProvenanceEntries(item)) {
+            const instructors = Array.isArray(entry.instructors) ? entry.instructors : [];
+            if (!instructors.length) continue;
+            hasKnownInstructor = true;
+            if (instructors.some(identity => preferredSet.has(identity))) matched = true;
+            selectedEntries.push(entry);
+          }
+        }
+
+        if (!hasKnownInstructor || matched) continue;
+        const details = selectedEntries.map(formatLectureMeeting).filter(Boolean);
+        for (const detail of details) labels.push(`${course.code} (${detail})`);
+      }
+      return labels;
     }
 
     // Shared renderer: builds the time-by-day grid from an already-chosen
@@ -1324,6 +1511,21 @@
       }
       html += "</tbody></table>";
       out.innerHTML = html;
+      const nonPreferred = nonPreferredLectureLabels(plan);
+      if (nonPreferred.length) {
+        const note = document.createElement("div");
+        note.className = "legend";
+        const heading = document.createElement("div");
+        heading.textContent = "Non-preferred lectures:";
+        note.appendChild(heading);
+        for (const label of nonPreferred) {
+          const line = document.createElement("div");
+          line.className = "non-preferred-lecture";
+          line.textContent = label;
+          note.appendChild(line);
+        }
+        out.appendChild(note);
+      }
       const lockedCount = plans.reduce((n, p) => n + p.locked.length, 0);
       status.textContent = `Built a timetable from ${lockedCount} locked section(s) across ` +
         `${plan.length} course(s). ${msg} ${searchedCombinationsText(
