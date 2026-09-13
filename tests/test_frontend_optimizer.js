@@ -544,11 +544,14 @@ function evaluateReference(plan) {
   }
 
   let gapsMs = 0;
+  let campusMs = 0;
   let lunchDeficitMs = 0;
   let sumStartMs = 0;
   let sumEndMs = 0;
   for (const blocks of byDay.values()) {
     blocks.sort((a, b) => a.start - b.start || a.end - b.end);
+    if (blocks.length)
+      campusMs += blocks[blocks.length - 1].end - blocks[0].start;
     for (let i = 1; i < blocks.length; i++) {
       gapsMs += Math.max(0, blocks[i].start - blocks[i - 1].end);
     }
@@ -563,13 +566,13 @@ function evaluateReference(plan) {
       sumEndMs += block.end;
     }
     const freeLunchMs = (LUNCH_END - LUNCH_START) - occupiedLunchMs;
-    if (freeLunchMs < HOUR) lunchDeficitMs += HOUR - freeLunchMs;
+    if (freeLunchMs < HOUR) lunchDeficitMs += HOUR;
   }
 
   return {
     activeDays: byDay.size,
     gapsMs,
-    campusMs: byDay.size * HOUR + gapsMs,
+    campusMs,
     lunchDeficitMs,
     sumStartMs,
     sumEndMs,
@@ -1259,11 +1262,38 @@ test("Task 2: lecture provenance remains aligned through normalization", () => {
   second.instructors = [{ firstName: " Grace ", lastName: " Hopper " }];
 
   const lectureOptions = optimizer.buildLecOptions([first, second]);
-  assert.equal(lectureOptions.length, 4,
-    "mixed multi-meeting lecture sources must retain all valid position choices");
-  const mixed = lectureOptions.find(option =>
-    option.lectureProvenance.map(entry => entry.sectionName).join(",") === "LEC-A,LEC-B");
-  assert.ok(mixed, "a candidate combining the two lecture sources must be retained");
+  assert.equal(lectureOptions.length, 2,
+    "each multi-meeting lecture section must remain one complete candidate");
+  assert.deepEqual(
+    lectureOptions.map(option => option.lectureProvenance.map(entry => entry.sectionName)),
+    [["LEC-A", "LEC-A"], ["LEC-B", "LEC-B"]],
+    "lecture candidates must not mix source sections by meeting position",
+  );
+
+  // Use a deliberately mixed legacy-shaped option to keep testing that
+  // normalization preserves meeting/source/instructor alignment at boundaries.
+  const firstMeeting = optimizer.meetings(first)[0];
+  const secondMeeting = optimizer.meetings(second)[0];
+  const mixed = {
+    lec: true,
+    sec: { name: "LEC*" },
+    ms: [firstMeeting, secondMeeting],
+    secs: ["LEC-A", "LEC-B"],
+    lectureProvenance: [
+      {
+        meeting: firstMeeting,
+        sourceSection: first,
+        sectionName: "LEC-A",
+        instructors: ["ada lovelace"],
+      },
+      {
+        meeting: secondMeeting,
+        sourceSection: second,
+        sectionName: "LEC-B",
+        instructors: ["grace hopper"],
+      },
+    ],
+  };
   assert.deepEqual(
     mixed.ms.map(preservationMeetingKey),
     mixed.lectureProvenance.map(entry => preservationMeetingKey(entry.meeting)),
@@ -1288,7 +1318,7 @@ test("Task 2: lecture provenance remains aligned through normalization", () => {
   assert.deepEqual(normalizedPlans[0].preferredInstructors, ["ada lovelace", "grace hopper"]);
   const normalized = normalizedPlans[0].combos[0][0];
   assert.deepEqual(normalized.ms.map(preservationMeetingKey), [
-    "2:36000000:39600000", "5:28800000:32400000",
+    "1:36000000:39600000", "5:28800000:32400000",
   ], "normalization must sort meetings deterministically");
   assert.deepEqual(normalized.secs, ["LEC-B", "LEC-A"],
     "normalization must move section names with their meetings");
@@ -1316,6 +1346,85 @@ test("Task 2: lecture provenance remains aligned through normalization", () => {
   assert.equal(sameTimePlans[0].combos.length, 2,
     "course construction must retain same-time different-instructor candidates");
 });
+
+test("Task 4: MAT290 preferred lectures keep section integrity and report mixed provenance", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const raw = readJson("computer-2-fall.json");
+  const mat = raw.find(course => course.code === "MAT290H1");
+  assert.ok(mat, "MAT290H1 must exist in the Computer Fall cache");
+
+  const plans = optimizer.buildCoursePlans([mat], {
+    preferredInstructors: { MAT290H1: ["manfredi maggiore"] },
+  });
+  const result = optimizer.findBestPlan(plans, {
+    campus: 0, lunch: 0, early: 0, late: 0,
+  });
+  assert.equal(result.status, "OPTIMAL");
+  const selectedLecture = result.plan[0].pick.find(item => item.lec);
+  assert.ok(selectedLecture, "MAT290 result must contain a lecture candidate");
+  assert.deepEqual(
+    [...new Set(selectedLecture.lectureProvenance.map(entry => entry.sectionName))],
+    ["LEC0102"],
+    "preferred MAT290 lectures must use one complete source section",
+  );
+  assert.ok(selectedLecture.lectureProvenance.every(entry =>
+    entry.instructors.includes("manfredi maggiore"),
+  ));
+  assert.equal(result.evaluation.matchedCourseCount, 1);
+  assert.equal(result.evaluation.missedCourseCount, 0);
+
+  const lectureSections = new Map(
+    mat.sections.filter(section => section.teachMethod === "LEC")
+      .map(section => [section.name, section]),
+  );
+  const mixedEntries = [
+    ["LEC0103", 0],
+    ["LEC0101", 1],
+    ["LEC0102", 2],
+  ].map(([name, index]) => {
+    const section = lectureSections.get(name);
+    const meeting = optimizer.meetings(section)[index];
+    const instructors = section.instructors
+      .map(optimizer.canonicalInstructorIdentity).filter(Boolean);
+    return {
+      meeting,
+      sourceSection: { name, instructors: section.instructors },
+      sectionName: name,
+      instructors,
+    };
+  });
+  const mixedPlan = [{
+    code: "MAT290H1",
+    name: "Advanced Engineering Mathematics",
+    preferredInstructors: ["manfredi maggiore"],
+    pick: [{
+      lec: true,
+      sec: { name: "LEC*" },
+      ms: mixedEntries.map(entry => entry.meeting),
+      secs: mixedEntries.map(entry => entry.sectionName),
+      lectureProvenance: mixedEntries,
+    }],
+  }];
+  assert.deepEqual(optimizer.evaluateInstructorPreferences(mixedPlan), {
+    preferredCourseCount: 1,
+    matchedCourseCount: 0,
+    missedCourseCount: 1,
+  }, "a mixed preferred/non-preferred lecture must count as a miss");
+
+  const page = makeInlinePageHarness();
+  const labels = vm.runInContext(
+    `nonPreferredLectureLabels(${JSON.stringify(mixedPlan)})`,
+    page.context,
+  );
+  assert.equal(labels.length, 2,
+    "mixed provenance must report each non-preferred lecture entry");
+  assert.ok(labels.some(label => label.includes("LEC0103") && label.includes("Adrian Nachman")));
+  assert.ok(labels.some(label => label.includes("LEC0101") && label.includes("Erfan Meskar")));
+  assert.equal(labels.some(label => label.includes("LEC0102")), false,
+    "the preferred Manfredi entry must not be reported as non-preferred");
+});
+
 
 function task4InstructorCourse(code = "INSTR") {
   const lecture = preservationSection("LEC1", "LEC", [
@@ -1358,7 +1467,7 @@ test("Task 4: preferred instructor choices use only valid lecture records", () =
   assert.equal(task4InstructorGroups(page).length, 1);
   assert.ok(boxes.every(box => !Object.prototype.hasOwnProperty.call(box.dataset, "tm") &&
     !Object.prototype.hasOwnProperty.call(box.dataset, "sec")),
-  "instructor checkboxes must not carry section-lock metadata");
+    "instructor checkboxes must not carry section-lock metadata");
 });
 
 test("Task 4: missing or invalid lecture instructor data renders no group", () => {
@@ -1592,9 +1701,12 @@ test("preservation baseline: cache loading, reset-on-load, and dropdown/load dis
     readJson("computer-1-fall.json").map(course => String(course.code)).sort(),
     "Load must populate COURSES from the selected cache path");
   assert.deepEqual(preservationDataFetches(page), ["data/computer-1-fall.json"]);
+  const manifestVersion = readJson("manifest.json").version;
+  assert.match(manifestVersion, /^[0-9a-f]{16}$/,
+    "manifest must publish a cache revision");
   assert.ok(page.storageWrites.some(entry =>
-    entry.key === "ttb:data/computer-1-fall.json"),
-    "a fetched cache must be written under the ttb: localStorage key");
+    entry.key === `ttb:${manifestVersion}:data/computer-1-fall.json`),
+    "a fetched cache must be written under the revisioned localStorage key");
 
   // Dropdown changes only change the displayed selection. They do not fetch,
   // clear COURSES, clear the displayed timetable, or clear cumulative state
@@ -1643,21 +1755,35 @@ test("preservation baseline: cache loading, reset-on-load, and dropdown/load dis
   assert.equal(preservationDataFetches(page).length, dataFetchCount,
     "reloading the same key must use _memCache without a second data fetch");
 
-  // A fresh page with the serialized ttb: entry takes the localStorage path and
-  // must not fetch the corresponding data file.
+  // A fresh page with the serialized revisioned entry takes the localStorage
+  // path and must not fetch the corresponding data file.
+  const revisionedStorageKey = `ttb:${manifestVersion}:data/computer-1-fall.json`;
   const localStorageOnly = new Map([
-    ["ttb:data/computer-1-fall.json", JSON.stringify(readJson("computer-1-fall.json"))],
+    [revisionedStorageKey, JSON.stringify(readJson("computer-1-fall.json"))],
   ]);
   const storagePage = makePreservationCacheHarness(localStorageOnly);
   await storagePage.settleAsync();
   preservationSelect(storagePage, "computer", "1", "fall");
   await preservationLoad(storagePage);
   assert.equal(preservationDataFetches(storagePage).length, 0,
-    "an existing ttb: cache entry must avoid a data fetch");
-  assert.ok(storagePage.storageReads.includes("ttb:data/computer-1-fall.json"),
-    "the localStorage fallback must read the ttb: cache key");
+    "an existing revisioned cache entry must avoid a data fetch");
+  assert.ok(storagePage.storageReads.includes(revisionedStorageKey),
+    "the localStorage fallback must read the revisioned cache key");
   assert.deepEqual(preservationLoadedCodes(storagePage), computerCodes,
     "the localStorage cache must load the same catalog as the fetched path");
+
+  // An old unversioned entry must not win over the current published cache.
+  const staleStorage = new Map([
+    ["ttb:data/computer-1-fall.json", JSON.stringify(readJson("electrical-2-winter.json"))],
+  ]);
+  const stalePage = makePreservationCacheHarness(staleStorage);
+  await stalePage.settleAsync();
+  preservationSelect(stalePage, "computer", "1", "fall");
+  await preservationLoad(stalePage);
+  assert.equal(preservationDataFetches(stalePage).length, 1,
+    "an old unversioned cache entry must be bypassed");
+  assert.deepEqual(preservationLoadedCodes(stalePage), computerCodes,
+    "bypassing stale storage must load the current catalog");
 });
 
 
@@ -1742,7 +1868,7 @@ test("preservation baseline: selected/build plans retain components, deduplicate
   const unfillable = optimizer.buildCoursePlans([preservationCourse("REQUIRED", [
     preservationSection("LEC1", "LEC", [
       { day: 3, start: 8 * HOUR, end: 9 * HOUR },
-      { day: 3, start: 10 * HOUR, end: 11 * HOUR },
+      { day: 3, start: 8 * HOUR + 30 * 60 * 1000, end: 9 * HOUR + 30 * 60 * 1000 },
     ]),
   ])], {});
   assert.deepEqual(unfillable[0].poolTypes, ["LEC"],
@@ -1766,8 +1892,8 @@ test("preservation baseline: objective measurements and deterministic ties retai
   const reference = evaluateReference(plan);
   assert.equal(reference.activeDays, 2);
   assert.equal(reference.gapsMs, HOUR);
-  assert.equal(reference.campusMs, 3 * HOUR,
-    "campus combines active-day cost and positive internal gaps");
+  assert.equal(reference.campusMs, 4 * HOUR,
+    "campus time sums each day's first start to last end");
   assert.equal(reference.lunchDeficitMs, 0,
     "one free hour in the 11:00–13:00 window satisfies lunch");
   assert.equal(reference.sumEndMs, 31 * HOUR,
@@ -1780,7 +1906,7 @@ test("preservation baseline: objective measurements and deterministic ties retai
     {
       activeDays: 2,
       gapsMs: HOUR,
-      campusMs: 3 * HOUR,
+      campusMs: 4 * HOUR,
       lunchDeficitMs: 0,
       sumStartMs: 28 * HOUR,
       sumEndMs: 31 * HOUR,
@@ -1791,8 +1917,8 @@ test("preservation baseline: objective measurements and deterministic ties retai
     objectiveSection("FIRST", [{ day: 1, start: 11 * HOUR, end: 11.5 * HOUR }]),
     objectiveSection("SECOND", [{ day: 1, start: 11.25 * HOUR, end: 12 * HOUR }]),
   ]);
-  assert.equal(evaluateReference(exactlyEnough).lunchDeficitMs, 15 * 60 * 1000,
-    "the independent baseline helper records overlapping lunch occupancy per block");
+  assert.equal(evaluateReference(exactlyEnough).lunchDeficitMs, HOUR,
+    "the independent baseline helper applies one penalty to a deficient day");
   assert.equal(optimizer.evaluatePlan(exactlyEnough).lunchDeficitMs, 0,
     "the established optimizer behavior unions overlapping lunch blocks before the threshold");
 
@@ -2388,7 +2514,7 @@ test("task 3.2: candidate construction preserves active types, attendance, and d
   const noLectureOption = [preservationCourse("REQUIRED-LEC", [
     preservationSection("LEC1", "LEC", [
       { day: 1, start: 8 * HOUR, end: 9 * HOUR },
-      { day: 1, start: 10 * HOUR, end: 11 * HOUR },
+      { day: 1, start: 8 * HOUR + 30 * 60 * 1000, end: 9 * HOUR + 30 * 60 * 1000 },
     ]),
   ])];
   const impossible = optimizer.buildCoursePlans(noLectureOption);
@@ -2504,8 +2630,8 @@ test("task 3.3: evaluatePlan uses canonical campus, lunch, early, and late measu
   assert.equal(evaluation.activeDays, 2);
   assert.equal(evaluation.gapsMs, HOUR,
     "only the one-hour gap between the day-one classes is campus free time");
-  assert.equal(evaluation.campusMs, 3 * HOUR,
-    "campus cost is active days plus positive internal gaps");
+  assert.equal(evaluation.campusMs, 4 * HOUR,
+    "campus time sums each day's first start to last end");
   assert.equal(evaluation.lunchDeficitMs, 0,
     "one free hour from 11:00 to 13:00 satisfies the lunch threshold");
   assert.equal(evaluation.sumStartMs, 28 * HOUR);
@@ -2520,7 +2646,8 @@ test("task 3.3: evaluatePlan uses canonical campus, lunch, early, and late measu
   const touchingEvaluation = optimizer.evaluatePlan(touching);
   assert.equal(touchingEvaluation.gapsMs, 0,
     "endpoint-touching classes do not create a campus gap");
-  assert.equal(touchingEvaluation.campusMs, HOUR);
+  assert.equal(touchingEvaluation.campusMs, 2 * HOUR,
+    "touching classes occupy a two-hour first-start-to-last-end span");
 });
 
 
@@ -2577,8 +2704,8 @@ test("task 3.3: scorePlan and comparePlans agree on the shared integer evaluatio
   const spreadScore = optimizer.scorePlan(spread, campus);
 
   assert.equal(compactScore, 1);
-  assert.equal(spreadScore, 4,
-    "the spread plan has one active day plus a three-hour internal gap");
+  assert.equal(spreadScore, 5,
+    "the spread plan spans five hours from its first start to last end");
   assert.equal(sign(compactScore - spreadScore),
     sign(optimizer.comparePlans(compact, spread, campus)));
   assert.equal(sign(spreadScore - compactScore),
@@ -2595,8 +2722,8 @@ test("task 3.3: scorePlan and comparePlans agree on the shared integer evaluatio
   assert.equal(combinedScore,
     (combinedEvaluation.campusMs + combinedEvaluation.sumEndMs -
       combinedEvaluation.sumStartMs) / HOUR);
-  assert.equal(combinedScore, 6,
-    "combined preferences retain the existing campus/end/start relative terms");
+  assert.equal(combinedScore, 7,
+    "combined preferences retain the campus-span/end/start relative terms");
 });
 
 
@@ -3831,10 +3958,10 @@ test("task 3.6 performance regression: locked Computer Fall search is exact and 
   assert.equal(synchronous.diagnostics.combinationsSearched, synchronous.combinationsSearched);
   assert.deepEqual(synchronous.objective, {
     lunchDeficitMs: 0,
-    combinedMs: 4 * HOUR,
-    totalMs: 4 * HOUR,
+    combinedMs: 24 * HOUR,
+    totalMs: 24 * HOUR,
   });
-  assert.equal(synchronous.evaluation.activeDays, 4);
+  assert.equal(synchronous.evaluation.activeDays, 5);
   assert.equal(synchronous.evaluation.gapsMs, 0);
   assert.equal(synchronous.signature, optimizer.planSignature(synchronous.plan));
 
@@ -4397,6 +4524,7 @@ function task3OraclePreferenceOutcome(course) {
 
   let hasKnownInstructor = false;
   let matched = false;
+  let missed = false;
   for (const item of (course && course.pick) || []) {
     if (!item || !item.lec) continue;
     for (const entry of Array.isArray(item.lectureProvenance)
@@ -4409,12 +4537,13 @@ function task3OraclePreferenceOutcome(course) {
       if (!identities.length) continue;
       hasKnownInstructor = true;
       if (identities.some(identity => preferred.has(identity))) matched = true;
+      else missed = true;
     }
   }
   return {
     active: true,
-    matched,
-    missed: matched || !hasKnownInstructor ? 0 : 1,
+    matched: matched && !missed,
+    missed: hasKnownInstructor && missed ? 1 : 0,
   };
 }
 

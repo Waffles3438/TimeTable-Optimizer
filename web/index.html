@@ -435,7 +435,7 @@
       <div id="courseList"><em>Loading courses…</em></div>
       <div class="opt" id="optPanel" hidden>
         <div class="opt-title">Optimize for:</div>
-        <label><input type="checkbox" id="optCampus"> Minimize free time on campus</label>
+        <label><input type="checkbox" id="optCampus"> Minimize time on campus</label>
         <div class="opt-sub" id="lunchWrap" hidden>
           <label><input type="checkbox" id="optLunch"> Provide time for lunch</label>
         </div>
@@ -489,6 +489,9 @@
     // course code. This remains in memory while lecture attendance is excluded
     // so unchecking the exclusion restores the previous preferences.
     const preferredInstructorsByCode = new Map();
+    // courses whose lecture meetings may be mixed across source sections when
+    // every selected source section shares a canonical instructor identity.
+    const mixedLecturesByCode = new Set();
     // per-TUT-section attendance for SELECTED multi-meeting tutorial sections,
     // keyed by "courseCode|secName". Value (when present) is a Set of meeting
     // indices the user will attend; absent means "attend all meetings of the
@@ -573,9 +576,12 @@
       bestSoFarKey = null;
     }
 
-    // In-memory + localStorage cache of fetched course data, keyed by the
-    // (year, session, track) combination so re-selecting is instant.
+    // In-memory + revisioned localStorage cache of fetched course data, keyed by
+    // the (year, session, track) combination and the manifest data revision.
+    // The revision prevents an older browser catalog from hiding newly published
+    // instructors or sections indefinitely.
     const _memCache = new Map();
+    let dataCacheVersion = "legacy";
     function _lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
     function _lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
     function comboKey(program, year, session) {
@@ -586,6 +592,9 @@
       const s = document.getElementById("selSession").value;
       const t = document.getElementById("selTrack").value;
       return `data/${t}-${y}-${s}.json`;
+    }
+    function localStorageCacheKey(key) {
+      return `ttb:${dataCacheVersion}:${key}`;
     }
 
     // The manifest is only an availability index; course data still loads through
@@ -641,6 +650,9 @@
         const manifest = await res.json();
         const combos = Array.isArray(manifest.combos) ? manifest.combos : [];
         if (!combos.length) throw new Error("manifest has no cached combinations");
+        const version = typeof manifest.version === "string"
+          ? manifest.version.trim() : "";
+        dataCacheVersion = version || "legacy";
         availableCombos = new Set(combos.map(combo =>
           comboKey(combo.program, combo.year, combo.session)));
         updateAvailability();
@@ -656,6 +668,7 @@
       clearBestSoFar();
       uselessTut.clear(); uselessPra.clear(); uselessLec.clear();
       preferredInstructorsByCode.clear();
+      mixedLecturesByCode.clear();
       for (const id of ["optCampus", "optLunch", "optEarly", "optLate"])
         if (document.getElementById(id)) document.getElementById(id).checked = false;
       const lunchWrap = document.getElementById("lunchWrap");
@@ -685,18 +698,18 @@
       // remove the previously-generated timetable for the old selection
       const timetable = document.getElementById("timetable");
       if (timetable) timetable.innerHTML = "";
-      let data = _memCache.get(key) || _lsGet("ttb:" + key);
+      let data = _memCache.get(key) || _lsGet(localStorageCacheKey(key));
       const cacheInfo = document.getElementById("cacheInfo");
       if (data) {
         if (cacheInfo) cacheInfo.textContent = "";
       } else {
         try {
-          const res = await fetch(key);
+          const res = await fetch(key, { cache: "no-store" });
           if (!res.ok) throw new Error(`cache request failed: ${res.status}`);
           data = await res.json();
           if (!Array.isArray(data)) throw new Error("cache is not a course array");
           _memCache.set(key, data);
-          _lsSet("ttb:" + key, data);
+          _lsSet(localStorageCacheKey(key), data);
           if (cacheInfo) cacheInfo.textContent = "";
         } catch (e) {
           if (cacheInfo)
@@ -790,6 +803,7 @@
       const lockedByCode = {};
       for (const box of list.querySelectorAll('input[type=radio]:checked')) {
         const code = box.dataset.code, tm = box.dataset.tm, sec = box.dataset.sec;
+        if (!code || !tm || !sec) continue;
         (lockedByCode[code] = lockedByCode[code] || {})[tm] = sec;
       }
       list.innerHTML = "";
@@ -800,14 +814,17 @@
         head.className = "course-head";
         head.innerHTML = `<code>${c.code}</code> <span class="nm">${c.name}</span>`;
         wrap.appendChild(head);
-        // "Lectures not worth attending" circular radio under the course name.
-        // Unchecked by default (= lectures ARE worth attending). When checked, none
-        // of that course's lectures are placed on the timetable.
-        if (c.sections.some(s => s.teachMethod === "LEC")) {
+        const lectureSections = c.sections.filter(section =>
+          OPTIMIZER.componentType(section) === "LEC" &&
+          OPTIMIZER.meetings(section).some(meeting => meeting.end > meeting.start));
+        if (lectureSections.length) {
           const lecHdr = document.createElement("div");
           lecHdr.className = "tm-head";
           lecHdr.textContent = "Lectures";
           wrap.appendChild(lecHdr);
+          // "Lectures not worth attending" circular radio under the course name.
+          // Unchecked by default (= lectures ARE worth attending). When checked, none
+          // of that course's lectures are placed on the timetable.
           const lecLbl = document.createElement("label");
           lecLbl.className = "section lec-worth-lbl";
           lecLbl.innerHTML =
@@ -815,6 +832,17 @@
             (uselessLec.has(c.code) ? ` checked` : ``) +
             `> <span>Lectures not worth attending</span>`;
           wrap.appendChild(lecLbl);
+          // This is intentionally per-course and opt-in. A course needs at least
+          // two usable lecture sections before mixing can produce another choice.
+          if (lectureSections.length > 1) {
+            const mixLbl = document.createElement("label");
+            mixLbl.className = "section lec-mix-lbl";
+            mixLbl.innerHTML =
+              `<input type="radio" name="${c.code}-LEC-MIX" class="lecMix" data-code="${c.code}"` +
+              (mixedLecturesByCode.has(c.code) ? ` checked` : ``) +
+              `> <span>Allow mixing lecture sections (same instructor only)</span>`;
+            wrap.appendChild(mixLbl);
+          }
           renderLectureInstructorPreferences(wrap, c);
         }
         // radio groups for PRA and TUT: pick at most one of each to lock.
@@ -979,6 +1007,9 @@
           if (box.classList.contains("lecWorth") && box.dataset.code) {
             uselessLec.delete(box.dataset.code);
           }
+          if (box.classList.contains("lecMix") && box.dataset.code) {
+            mixedLecturesByCode.delete(box.dataset.code);
+          }
           // a previously-selected TUT/PRA/LEC radio is now deselected: re-render so
           // the selection (and any per-class toggles) reflect the unlocked state.
           renderCourseList();
@@ -994,6 +1025,14 @@
       // update the corresponding useless* set and re-render.
       list.onchange = (e) => {
         const box = e.target;
+        if (box && box.classList && box.classList.contains("lecMix")) {
+          const code = String(box.dataset.code || "");
+          if (!code) return;
+          if (box.checked) mixedLecturesByCode.add(code);
+          else mixedLecturesByCode.delete(code);
+          clearBestSoFar();
+          return;
+        }
         if (box && box.classList && box.classList.contains("lecInstructor")) {
           const code = String(box.dataset.code || "");
           const identity = OPTIMIZER.canonicalPreferredInstructors(
@@ -1097,6 +1136,7 @@
         uselessTut: Array.from(uselessTut),
         uselessPra: Array.from(uselessPra),
         uselessLec: Array.from(uselessLec),
+        mixedLectures: Array.from(mixedLecturesByCode),
         preferredInstructors,
         tutAttend: attendance,
       });
@@ -1198,6 +1238,7 @@
           practical: canonicalStringSet(uselessPra),
           tutorial: canonicalStringSet(uselessTut),
         },
+        lectureMixing: canonicalStringSet(mixedLecturesByCode),
         tutorialAttendance: canonicalTutorialAttendance(),
         options: {
           campus: opts.campus,
@@ -1405,7 +1446,6 @@
         if (!preferred.length) continue;
         const preferredSet = new Set(preferred);
         let hasKnownInstructor = false;
-        let matched = false;
         const selectedEntries = [];
 
         for (const item of (course && course.pick) || []) {
@@ -1417,12 +1457,12 @@
             const instructors = Array.isArray(entry.instructors) ? entry.instructors : [];
             if (!instructors.length) continue;
             hasKnownInstructor = true;
-            if (instructors.some(identity => preferredSet.has(identity))) matched = true;
-            selectedEntries.push(entry);
+            if (!instructors.some(identity => preferredSet.has(identity)))
+              selectedEntries.push(entry);
           }
         }
 
-        if (!hasKnownInstructor || matched) continue;
+        if (!hasKnownInstructor) continue;
         const details = selectedEntries.map(formatLectureMeeting).filter(Boolean);
         for (const detail of details) labels.push(`${course.code} (${detail})`);
       }
@@ -1832,7 +1872,7 @@
 
     document.getElementById("optimize").addEventListener("click", optimize);
     document.getElementById("loadData").addEventListener("click", load);
-    // show the "include lunch" sub-option only when "Minimize free time on campus" is checked
+    // show the "include lunch" sub-option only when "Minimize time on campus" is checked
     document.getElementById("optCampus").addEventListener("change", (e) => {
       const wrap = document.getElementById("lunchWrap");
       if (wrap) wrap.hidden = !e.target.checked;
