@@ -499,19 +499,24 @@
 
         const preferredSet = new Set(preferred);
         let hasKnownInstructor = false;
-        let matched = false;
+        let hasPreferredInstructor = false;
+        let hasNonPreferredInstructor = false;
         for (const item of candidateItems(course)) {
           if (optionType(item) !== "LEC") continue;
           for (const entry of lectureProvenanceEntries(item)) {
             const instructors = Array.isArray(entry.instructors) ? entry.instructors : [];
             if (!instructors.length) continue;
             hasKnownInstructor = true;
-            if (instructors.some(identity => preferredSet.has(identity))) matched = true;
+            if (instructors.some(identity => preferredSet.has(identity)))
+              hasPreferredInstructor = true;
+            else
+              hasNonPreferredInstructor = true;
           }
         }
 
-        if (matched) result.matchedCourseCount++;
-        else if (hasKnownInstructor) result.missedCourseCount++;
+        if (!hasKnownInstructor) continue;
+        if (hasNonPreferredInstructor) result.missedCourseCount++;
+        else if (hasPreferredInstructor) result.matchedCourseCount++;
       }
       return result;
     }
@@ -643,78 +648,120 @@
     }
 
     /*
-     * Build the page's lecture-position choices.  Position p is the p-th
+     * Build the page's lecture-position choices. Position p is the p-th
      * chronological meeting of a section; one section may be used for multiple
      * positions, but selected weekly positions must be on distinct days and may
-     * not overlap.
+     * not overlap. Strict one-source-section candidates are always included.
+     * When allowMixedSections is enabled, additional candidates may take the
+     * corresponding positions from different sections only when every selected
+     * source section has at least one same canonical instructor.
      */
-    function buildLecOptions(lectureSections) {
+    function buildLecOptions(lectureSections, options) {
+      const allowMixedSections = !!(options && options.allowMixedSections);
       const sections = (lectureSections || [])
         .filter(section => componentType(section) === "LEC")
         .slice();
       const unique = new Map();
       for (const section of sections) unique.set(sectionIdentitySignature(section), section);
       const all = Array.from(unique.values())
-        .map(sec => ({ sec, ms: usableMeetings(sec) }))
+        .map(sec => ({
+          sec,
+          ms: usableMeetings(sec),
+          instructors: extractSectionInstructors(sec),
+        }))
         .filter(option => option.ms.length)
         .sort((left, right) => compareSections(left.sec, right.sec));
       if (!all.length) return [];
 
-      const count = Math.max(...all.map(option => option.ms.length));
-      const positions = [];
-      for (let position = 0; position < count; position++) {
-        positions[position] = all
-          .filter(option => position < option.ms.length)
-          .map(option => ({
-            sec: option.sec,
-            m: option.ms[position],
-            instructors: extractSectionInstructors(option.sec),
-          }))
-          .sort((left, right) => compareStrings(sectionName(left.sec), sectionName(right.sec)) ||
-            compareStrings(left.instructors.join(","), right.instructors.join(",")) ||
-            compareMeetings(left.m, right.m));
-      }
-
-      const choices = [];
-      const chosen = [];
-      function visit(position) {
-        if (position === count) {
-          choices.push(chosen.slice());
-          return;
-        }
-        for (const candidate of positions[position]) {
-          if (chosen.some(previous => previous.m.day === candidate.m.day)) continue;
-          if (chosen.some(previous => overlaps(previous.m, candidate.m))) continue;
-          chosen.push(candidate);
-          visit(position + 1);
-          chosen.pop();
-        }
-      }
-      visit(0);
-
       const result = [];
       const seen = new Set();
-      for (const choice of choices) {
-        const provenance = choice.map(item => ({
-          meeting: item.m,
-          sourceSection: item.sec,
-          sectionName: sectionName(item.sec),
-          instructors: item.instructors.slice(),
+      const addCandidate = candidate => {
+        const signature = optionSignature(candidate);
+        if (seen.has(signature)) return;
+        seen.add(signature);
+        result.push(candidate);
+      };
+
+      // A lecture section is one complete multi-meeting class. Do not combine
+      // Monday from one section with Wednesday/Friday from another by default:
+      // doing so creates a timetable that no instructor actually teaches and
+      // breaks instructor preferences and section provenance.
+      for (const option of all) {
+        const provenance = option.ms.map(meeting => ({
+          meeting,
+          sourceSection: option.sec,
+          sectionName: sectionName(option.sec),
+          instructors: option.instructors.slice(),
         }));
-        const option = {
+        addCandidate({
           lec: true,
           sec: { name: "LEC*" },
-          ms: choice.map(item => item.m),
-          secs: choice.map(item => sectionName(item.sec)),
-          // Keep this as one aligned record per ms entry. normalizePlanInput
-          // sorts the records, not the arrays independently.
+          ms: option.ms.slice(),
+          secs: option.ms.map(() => sectionName(option.sec)),
           lectureProvenance: provenance,
-        };
-        const signature = optionSignature(option);
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        result.push(option);
+        });
       }
+
+      if (allowMixedSections) {
+        // Meeting positions are only interchangeable for sections with the
+        // same number of meetings. This avoids silently dropping or padding a
+        // weekly class while still allowing the intended same-instructor mix.
+        const byMeetingCount = new Map();
+        for (const option of all) {
+          if (!byMeetingCount.has(option.ms.length)) byMeetingCount.set(option.ms.length, []);
+          byMeetingCount.get(option.ms.length).push(option);
+        }
+
+        for (const bucket of byMeetingCount.values()) {
+          if (bucket.length < 2) continue;
+          const meetingCount = bucket[0].ms.length;
+          const choose = (position, selected, commonInstructors, sourceKeys) => {
+            if (position === meetingCount) {
+              if (sourceKeys.size < 2) return;
+              const candidate = normalizeLectureOption({
+                lec: true,
+                sec: { name: "LEC*" },
+                ms: selected.map(entry => entry.meeting),
+                secs: selected.map(entry => entry.sectionName),
+                lectureProvenance: selected,
+              });
+              // Normalization keeps ms/secs/provenance chronological. Reject a
+              // duplicate meeting rather than allowing provenance de-duplication
+              // to change the number of selected weekly classes.
+              if (candidate.ms.length !== meetingCount || !isClashFree([candidate])) return;
+              addCandidate(candidate);
+              return;
+            }
+
+            for (const option of bucket) {
+              const nextCommon = commonInstructors === null
+                ? new Set(option.instructors)
+                : new Set(Array.from(commonInstructors).filter(identity =>
+                  option.instructors.includes(identity)));
+              // Unknown instructor records cannot prove that a mixed candidate
+              // is taught by the same person, so they remain eligible only for
+              // the strict candidates above.
+              if (!nextCommon.size) continue;
+              const meeting = option.ms[position];
+              const meetingKey = meetingSignature(meeting);
+              if (selected.some(entry => meetingSignature(entry.meeting) === meetingKey)) continue;
+              choose(
+                position + 1,
+                selected.concat([{
+                  meeting,
+                  sourceSection: option.sec,
+                  sectionName: sectionName(option.sec),
+                  instructors: option.instructors.slice(),
+                }]),
+                nextCommon,
+                new Set([...sourceKeys, sectionIdentitySignature(option.sec)]),
+              );
+            }
+          };
+          choose(0, [], null, new Set());
+        }
+      }
+
       result.sort(compareOptions);
       return result;
     }
@@ -960,7 +1007,8 @@
 
     /*
      * Build renderer-compatible per-course plan inputs.  The second argument may
-     * be a state object ({locks, uselessTut/uselessPra/uselessLec, tutAttend}),
+     * be a state object ({locks, uselessTut/uselessPra/uselessLec, mixedLectures,
+     * tutAttend}),
      * a lock array, or omitted.  The optional third/fourth positional arguments
      * retain a convenient compatibility form for callers with separate
      * exclusions and attendance maps.
@@ -1013,7 +1061,9 @@
         if (lectures.length && !isExcluded(buildState, course.code, "LEC", "") &&
           !lockedTypes.has("LEC")) {
           requireType("LEC");
-          pool.LEC = buildLecOptions(lectures);
+          pool.LEC = buildLecOptions(lectures, {
+            allowMixedSections: hasSetValue(buildState.mixedLectures, course.code),
+          });
         }
 
         for (const section of course.sections) {
@@ -1214,10 +1264,10 @@
     /*
      * Evaluate all objective measurements once using the shared integer time
      * unit (milliseconds).  Raw blocks are retained for class start/end sums,
-     * while their occupied union is used for campus gaps and lunch.  This keeps
-     * overlapping input blocks from double-counting occupied lunch time and
-     * keeps campus gaps correct even for a defensive evaluation of a plan that
-     * has not yet passed clash validation.
+     * while their occupied union is used for daily campus spans, campus gaps,
+     * and lunch.  This keeps overlapping input blocks from double-counting
+     * occupied lunch time and keeps campus measurements correct even for a
+     * defensive evaluation of a plan that has not yet passed clash validation.
      *
      * Hour-equivalent aliases are included for the existing #optInfo display
      * and for callers that used the old score arithmetic directly.
@@ -1228,9 +1278,13 @@
       let sumStartMs = 0;
       let sumEndMs = 0;
       let lunchDeficitMs = 0;
+      let campusMs = 0;
 
       for (const blocks of byDay.values()) {
         const occupied = mergeBlocks(blocks);
+        if (occupied.length) {
+          campusMs += occupied[occupied.length - 1].end - occupied[0].start;
+        }
         for (let index = 1; index < occupied.length; index++) {
           gapsMs += Math.max(0, occupied[index].start - occupied[index - 1].end);
         }
@@ -1240,11 +1294,12 @@
         }
         const lunchFreeMs = (LUNCH_END - LUNCH_START) -
           mergedOccupiedMs(blocks, LUNCH_START, LUNCH_END);
-        if (lunchFreeMs < HOUR) lunchDeficitMs += HOUR - lunchFreeMs;
+        // Lunch contributes one fixed penalty for each active day with less than
+        // one free hour in the 11:00–13:00 window.
+        if (lunchFreeMs < HOUR) lunchDeficitMs += HOUR;
       }
 
       const activeDays = byDay.size;
-      const campusMs = activeDays * HOUR + gapsMs;
       return {
         activeDays,
         activeDayCount: activeDays,
@@ -1978,7 +2033,9 @@
         let occupied = 0;
         for (const block of blocks) occupied += block.end - block.start;
         const free = (LUNCH_END - LUNCH_START) - occupied;
-        return free < HOUR ? HOUR - free : 0;
+        // Keep the incremental search state identical to evaluatePlan: one
+        // fixed penalty for a deficient day, regardless of deficit duration.
+        return free < HOUR ? HOUR : 0;
       };
 
       const insertLunchBlock = (blocks, block) => {
@@ -2254,30 +2311,19 @@
       };
 
       /*
-       * A safe stronger campus lower bound. Future meetings may fill a gap
-       * between already occupied blocks, so that gap cannot be counted as a
-       * lower bound. They cannot improve the schedule by adding an event
-       * outside the current occupied span, so those optional outer events are
-       * ignored here. The result is an optimistic (never too high) campus
-       * value and remains admissible for branch-and-bound.
+       * A safe campus lower bound for the daily first-start-to-last-end
+       * objective. Adding future classes can only extend an already-selected
+       * day's span, so the current selected spans are an admissible lower bound;
+       * future-only days contribute zero until a candidate is selected.
        */
-      const optimisticCampusMs = (remaining, remainingMask) => {
-        let gaps = 0;
-        const possibleForRemaining = possibleMasksForRemaining(remainingMask);
-        for (const day of selectedDays) {
-          const current = occupancy.get(day) || 0n;
-          if (current === 0n) continue;
-          let possible = current;
-          if (possibleForRemaining) {
-            possible |= possibleForRemaining.get(day) || 0n;
-          } else {
-            for (const entry of remaining)
-              possible |= entry.possibleMasks.get(day) || 0n;
-          }
-          const fillable = possible & gapMaskForOccupied(current);
-          gaps += gapsForMask(day, current | fillable);
+      const optimisticCampusMs = () => {
+        let campus = 0;
+        for (const blocks of selectedBlocks.values()) {
+          const occupied = mergeBlocks(blocks);
+          if (occupied.length)
+            campus += occupied[occupied.length - 1].end - occupied[0].start;
         }
-        return minimumActiveDayCount(remaining, remainingMask) * HOUR + gaps;
+        return campus;
       };
 
 
@@ -2419,35 +2465,13 @@
 
       const canUseBounds = opts.campus >= 0 && opts.lunch >= 0 &&
         opts.early >= 0 && opts.late >= 0;
-      const activeDaysCanImprove = (baseMask, remaining, remainingMask) => {
-        if (!bestObjective || !canUseBounds || opts.campus <= 0 || opts.early || opts.late ||
-          (opts.lunch && bestObjective.lunchDeficitMs !== 0)) return true;
-        return Array.from(possibleDayMasksForRemaining(remaining, remainingMask))
-          .some(mask => {
-            const lower = opts.campus * popcount32((baseMask | mask) >>> 0) * HOUR;
-            // Preference-aware equality remains live for missed-count and
-            // stable-signature tie breaking; no-preference searches retain the
-            // historical strict-improvement shortcut.
-            return preferenceAwareSearch
-              ? lower <= bestObjective.combinedMs
-              : lower < bestObjective.combinedMs;
-          });
-      };
+      // The daily span lower bound below is safe for every campus-only search;
+      // the former active-day-count shortcut was not safe for sub-hour classes.
       const remainingPreferenceMissLowerBound = remaining =>
         selectedMissedCourseCount + remaining.reduce((total, entry) =>
           total + entry.minimumPreferenceMiss, 0);
       const shouldPrune = (remaining, pruneEqual, remainingMask = 0) => {
         if (!bestObjective || !canUseBounds) return false;
-        // When the incumbent already has a feasible lunch and the objective
-        // contains only campus time, any strict improvement must use fewer
-        // active days than the incumbent's campus lower bound permits. Reject
-        // day masks that cannot improve before examining detailed gaps. This
-        // is especially effective for real first-year caches: a five-day
-        // incumbent reduces the proof search to the few possible four-day
-        // unions instead of traversing every five-day prefix.
-        if (pruneEqual && !activeDaysCanImprove(
-          selectedDayMask, remaining, remainingMask,
-        )) return true;
         const lowerLunch = opts.lunch ? lunchLowerBound(remaining, remainingMask) : 0;
         if (opts.lunch && lowerLunch > bestObjective.lunchDeficitMs) return true;
         if (opts.lunch && lowerLunch < bestObjective.lunchDeficitMs) return false;
@@ -2600,12 +2624,7 @@
         return { entry: choice.entry, compatible };
       };
 
-      const partialCampusMs = () => {
-        let gaps = 0;
-        for (const [day, mask] of occupancy.entries())
-          gaps += gapsForMask(day, mask);
-        return selectedDays.size * HOUR + gaps;
-      };
+      const partialCampusMs = () => optimisticCampusMs();
 
       const runGreedySeed = (
         selectCandidate,
@@ -2872,11 +2891,6 @@
         const nextRemainingMask = subsetCacheEnabled
           ? remainingMask & ~choice.entry.searchBit : 0;
         for (const candidate of choice.compatible) {
-          if (!activeDaysCanImprove(
-            selectedDayMask | dayBitMask(candidate.days),
-            nextRemaining,
-            nextRemainingMask,
-          )) continue;
           const previousMasks = addCandidate(candidate);
           if (!lunchPrefixExceedsIncumbent())
             visitObjective(nextRemaining, nextRemainingMask);
@@ -3207,11 +3221,6 @@
               continue;
             }
             const candidate = frame.compatible[frame.index++];
-            if (!activeDaysCanImprove(
-              selectedDayMask | dayBitMask(candidate.days),
-              frame.nextRemaining,
-              frame.nextRemainingMask,
-            )) continue;
             const state = addCandidate(candidate);
             if (lunchPrefixExceedsIncumbent()) {
               removeCandidate(candidate, state);

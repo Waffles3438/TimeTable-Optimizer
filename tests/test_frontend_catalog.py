@@ -74,6 +74,7 @@ class FrontendCatalogTests(unittest.TestCase):
             self.assertNotIn(("trackone", "2", semester), combos)
 
     def test_loader_uses_program_year_semester_cache_key(self):
+        self.assertRegex(self.manifest.get("version", ""), r"^[0-9a-f]{16}$")
         self.assertIn('return `data/${t}-${y}-${s}.json`;', self.html)
         self.assertIn('fetch("data/manifest.json"', self.html)
         self.assertIn("Manifest-backed availability", self.html)

@@ -28,6 +28,7 @@ Examples:
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import sys
@@ -190,8 +191,11 @@ def save_cached(args, courses):
     print(f"Cached {len(courses)} entries to {path}")
 
     # Refresh manifest of all cached combos. Program IDs intentionally contain
-    # no hyphens, so the existing filename format remains unambiguous.
+    # no hyphens, so the existing filename format remains unambiguous. The
+    # content-derived revision lets the frontend invalidate serialized browser
+    # caches whenever any published timetable data changes.
     combos = []
+    cache_files = []
     for fn in sorted(os.listdir(data_dir)):
         if not fn.endswith(".json") or fn == "manifest.json":
             continue
@@ -200,9 +204,18 @@ def save_cached(args, courses):
             t, y, s = stem.split("-", 2)
         except ValueError:
             continue
+        cache_files.append(fn)
         combos.append({"file": fn, "program": t, "year": y, "session": s})
+
+    revision = hashlib.sha256()
+    for fn in cache_files:
+        revision.update(fn.encode("utf-8"))
+        revision.update(b"\0")
+        with open(os.path.join(data_dir, fn), "rb") as handle:
+            revision.update(handle.read())
+
     with open(os.path.join(data_dir, "manifest.json"), "w") as f:
-        json.dump({"combos": combos}, f, indent=2)
+        json.dump({"version": revision.hexdigest()[:16], "combos": combos}, f, indent=2)
 
 
 def main():
