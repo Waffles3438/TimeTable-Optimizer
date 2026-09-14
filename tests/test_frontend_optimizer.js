@@ -1425,6 +1425,162 @@ test("Task 4: MAT290 preferred lectures keep section integrity and report mixed 
     "the preferred Manfredi entry must not be reported as non-preferred");
 });
 
+function lectureSourcePositions(optimizer, option, sourceSections) {
+  const byName = new Map((sourceSections || []).map(section => [section.name, section]));
+  return (option.lectureProvenance || []).map(entry => {
+    const source = entry.sourceSection || byName.get(entry.sectionName);
+    assert.ok(source, `missing source section for ${entry.sectionName}`);
+    const signature = optimizer.meetingSignature(entry.meeting);
+    const position = optimizer.meetings(source).findIndex(meeting =>
+      optimizer.meetingSignature(meeting) === signature);
+    assert.ok(position >= 0,
+      `${entry.sectionName} does not contain ${signature}`);
+    return position + 1;
+  });
+}
+
+function assertStrictlyIncreasing(values, label) {
+  for (let index = 1; index < values.length; index++) {
+    assert.ok(values[index - 1] < values[index],
+      `${label}: source positions ${values.join(",")} are not strictly increasing`);
+  }
+}
+
+test("mixed lecture generation rejects a clash-free source-position inversion before normalization", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+
+  // The old recursive generator selected A's position 1 (Tuesday 12:00) and
+  // B's position 2 (Tuesday 09:00), then normalization reordered the result to
+  // B position 2 followed by A position 1. The events do not overlap, so a
+  // clash-only check cannot detect this provenance inversion.
+  const first = preservationSection("LEC-A", "LEC", [
+    { day: 2, start: 12 * HOUR, end: 13 * HOUR },
+    { day: 3, start: 9 * HOUR, end: 10 * HOUR },
+  ]);
+  const second = preservationSection("LEC-B", "LEC", [
+    { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+    { day: 2, start: 9 * HOUR, end: 10 * HOUR },
+  ]);
+  first.instructors = [{ firstName: "Shared", lastName: "Instructor" }];
+  second.instructors = [{ firstName: "Shared", lastName: "Instructor" }];
+
+  const firstMeetings = optimizer.meetings(first);
+  const secondMeetings = optimizer.meetings(second);
+  const legacyInversion = {
+    lec: true,
+    sec: { name: "LEC*" },
+    ms: [secondMeetings[1], firstMeetings[0]],
+    secs: ["LEC-B", "LEC-A"],
+  };
+  assert.equal(
+    optimizer.isClashFree([{ code: "AB", pick: [legacyInversion] }]),
+    true,
+    "the captured source-position inversion is intentionally clash-free",
+  );
+
+  const options = optimizer.buildLecOptions([first, second], {
+    allowMixedSections: true,
+  });
+  const inversion = options.find(option => {
+    const positions = lectureSourcePositions(optimizer, option, [first, second]);
+    return positions[0] === 2 && positions[1] === 1;
+  });
+  assert.equal(inversion, undefined,
+    "mixed generation must not emit [source position 2, source position 1]");
+  for (const option of options)
+    assertStrictlyIncreasing(
+      lectureSourcePositions(optimizer, option, [first, second]),
+      `A/B option ${optimizer.optionSignature(option)}`,
+    );
+});
+
+test("MAT291 mixed lectures preserve chronological source positions through the page worker", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const raw = readJson("computer-2-fall.json");
+  const mat = raw.find(course => course.code === "MAT291H1");
+  assert.ok(mat, "MAT291H1 must exist in the Computer Fall cache");
+  const lectureSections = mat.sections.filter(section =>
+    ["LEC0103", "LEC0104"].includes(section.name));
+  assert.equal(lectureSections.length, 2,
+    "MAT291 must expose the two Parinaz lecture source sections");
+
+  const lec103 = lectureSections.find(section => section.name === "LEC0103");
+  const lec104 = lectureSections.find(section => section.name === "LEC0104");
+  const lec103Meetings = optimizer.meetings(lec103);
+  const lec104Meetings = optimizer.meetings(lec104);
+  assert.equal(optimizer.meetingSignature(lec104Meetings[1]),
+    "2:32400000:36000000");
+  assert.equal(optimizer.meetingSignature(lec103Meetings[0]),
+    "2:43200000:46800000");
+  assert.equal(optimizer.overlaps(lec104Meetings[1], lec103Meetings[0]), false,
+    "the reported Tuesday 09:00/12:00 inversion is clash-free");
+
+  const options = optimizer.buildLecOptions(lectureSections, {
+    allowMixedSections: true,
+  });
+  assert.ok(options.some(option =>
+    new Set(option.lectureProvenance.map(entry => entry.sectionName)).size > 1),
+    "MAT291 must retain legal same-instructor mixed candidates");
+
+  for (const option of options) {
+    const positions = lectureSourcePositions(optimizer, option, lectureSections);
+    assert.equal(positions.length, 3,
+      `MAT291 option must retain all three weekly positions: ${optimizer.optionSignature(option)}`);
+    assertStrictlyIncreasing(positions, `MAT291 option ${optimizer.optionSignature(option)}`);
+  }
+
+  const explicitInversion = options.some(option => {
+    const entries = option.lectureProvenance || [];
+    return entries.length >= 2 &&
+      entries[0].sectionName === "LEC0104" &&
+      optimizer.meetingSignature(entries[0].meeting) ===
+      optimizer.meetingSignature(lec104Meetings[1]) &&
+      entries[1].sectionName === "LEC0103" &&
+      optimizer.meetingSignature(entries[1].meeting) ===
+      optimizer.meetingSignature(lec103Meetings[0]);
+  });
+  assert.equal(explicitInversion, false,
+    "MAT291 must not retain the [LEC0104 position 2, LEC0103 position 1] sequence");
+
+  // Exercise selectedPlan -> worker -> result validation -> renderPlan. The
+  // tutorial is excluded only to isolate the lecture candidate seam; mixed
+  // lecture mode remains enabled for this course.
+  const page = makeInlinePageHarness().installDeterministicWorker();
+  page.installCourses([mat]);
+  vm.runInContext("mixedLecturesByCode.add('MAT291H1')", page.context);
+  page.setExclusions({ tut: ["MAT291H1"] });
+  const selected = page.selectedPlans();
+  assert.equal(selected.length, 1);
+  assert.deepEqual(selected[0].poolTypes, ["LEC"]);
+
+  const displayed = preservationRunPageOptimize(page, {
+    campus: 0, lunch: 0, early: 0, late: 0,
+  }, [0.5]);
+  assert.equal(page.workerInstances.length, 1,
+    "MAT291 optimization must use the existing worker boundary");
+  const sent = page.workerInstances[0].messages[0].input.plans[0];
+  for (const combo of sent.combos) {
+    const sentLecture = combo.find(item => item.lec);
+    assert.ok(sentLecture, "worker input must contain a lecture candidate");
+    assertStrictlyIncreasing(
+      lectureSourcePositions(optimizer, sentLecture, lectureSections),
+      `worker MAT291 option ${optimizer.optionSignature(sentLecture)}`,
+    );
+  }
+  assert.match(displayed.status, /Built a timetable/);
+  assert.ok(displayed.plan, "worker must return a selected MAT291 plan");
+  const renderedLecture = displayed.plan[0].pick.find(item => item.lec);
+  assert.ok(renderedLecture, "rendered MAT291 plan must contain a lecture");
+  assertStrictlyIncreasing(
+    lectureSourcePositions(optimizer, renderedLecture, lectureSections),
+    "rendered MAT291 lecture",
+  );
+  assert.notEqual(displayed.timetable, "",
+    "the legal worker result must reach the existing timetable renderer");
+});
+
 
 function task4InstructorCourse(code = "INSTR") {
   const lecture = preservationSection("LEC1", "LEC", [

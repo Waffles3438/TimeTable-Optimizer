@@ -743,6 +743,11 @@
               // the strict candidates above.
               if (!nextCommon.size) continue;
               const meeting = option.ms[position];
+              // Source positions are weekly positions, not merely a bag of
+              // events. Reject an inversion before normalization can reorder
+              // the provenance and make an invalid mixed lecture look legal.
+              if (position > 0 &&
+                compareMeetings(selected[position - 1].meeting, meeting) >= 0) continue;
               const meetingKey = meetingSignature(meeting);
               if (selected.some(entry => meetingSignature(entry.meeting) === meetingKey)) continue;
               choose(
