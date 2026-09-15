@@ -441,6 +441,8 @@
         </div>
         <label><input type="checkbox" id="optEarly"> End early</label>
         <label><input type="checkbox" id="optLate"> Start late</label>
+        <label><input type="checkbox" id="optStrictInstructors"> Make lecture instructors high
+          priority</label>
         <button id="optimize">Optimize</button>
         <div id="optInfo" class="legend"></div>
       </div>
@@ -669,7 +671,7 @@
       uselessTut.clear(); uselessPra.clear(); uselessLec.clear();
       preferredInstructorsByCode.clear();
       mixedLecturesByCode.clear();
-      for (const id of ["optCampus", "optLunch", "optEarly", "optLate"])
+      for (const id of ["optCampus", "optLunch", "optEarly", "optLate", "optStrictInstructors"])
         if (document.getElementById(id)) document.getElementById(id).checked = false;
       const lunchWrap = document.getElementById("lunchWrap");
       if (lunchWrap) lunchWrap.hidden = true;
@@ -1245,6 +1247,7 @@
           lunch: opts.lunch,
           early: opts.early,
           late: opts.late,
+          strictInstructors: opts.strictInstructors,
         },
       });
     }
@@ -1579,6 +1582,7 @@
         lunch: document.getElementById("optLunch").checked ? 1 : 0,
         early: document.getElementById("optEarly").checked ? 1 : 0,
         late: document.getElementById("optLate").checked ? 1 : 0,
+        strictInstructors: document.getElementById("optStrictInstructors").checked ? 1 : 0,
       };
     }
 
@@ -1878,7 +1882,7 @@
       if (wrap) wrap.hidden = !e.target.checked;
       clearBestSoFar();
     });
-    for (const id of ["optLunch", "optEarly", "optLate"])
+    for (const id of ["optLunch", "optEarly", "optLate", "optStrictInstructors"])
       document.getElementById(id).addEventListener("change", clearBestSoFar);
     // Changing a dropdown does NOT clear the shown courses or the generated
     // timetable. The currently-displayed selection stays until the user presses
