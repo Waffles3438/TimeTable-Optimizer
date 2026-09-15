@@ -5007,3 +5007,262 @@ test("Task 3: campus, early, and late schedule tiers outrank instructor misses",
     assert.deepEqual(result.objective, optimizer.objectiveKey(result.evaluation, fixture.options));
   }
 });
+
+
+// ---------------------------------------------------------------------------
+// "Make lecture instructors high priority" (strictInstructors option).
+//
+// When unchecked (default, options.strictInstructors falsy or absent), the
+// tests above prove nothing changed: instructor preference remains the
+// lowest-priority tier and a better campus/early/late/lunch outcome still
+// wins. When checked, a course with an active preference may ONLY produce
+// candidates that keep that preference; the generated timetable MUST use the
+// preferred instructor for that course, even at a worse schedule cost, and
+// falls through to the existing NO_SOLUTION contract if that is impossible.
+
+test("Task 3 strict mode: preferred instructor overrides campus, early, and late tiers", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const cases = [
+    {
+      name: "campus",
+      options: { campus: 1, lunch: 0, early: 0, late: 0, strictInstructors: 1 },
+      preferred: [
+        { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+        { day: 2, start: 8 * HOUR, end: 9 * HOUR },
+      ],
+      other: [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }],
+    },
+    {
+      name: "early",
+      options: { campus: 0, lunch: 0, early: 1, late: 0, strictInstructors: 1 },
+      preferred: [{ day: 1, start: 8 * HOUR, end: 12 * HOUR }],
+      other: [{ day: 1, start: 8 * HOUR, end: 10 * HOUR }],
+    },
+    {
+      name: "late",
+      options: { campus: 0, lunch: 0, early: 0, late: 1, strictInstructors: 1 },
+      preferred: [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }],
+      other: [{ day: 1, start: 10 * HOUR, end: 11 * HOUR }],
+    },
+  ];
+  for (const fixture of cases) {
+    const plans = task3PreferencePlan(`STRICT-${fixture.name}`, [task3Ada], [
+      task3PreferenceOption("LEC-PREFERRED", fixture.preferred, [task3Ada]),
+      task3PreferenceOption("LEC-OTHER", fixture.other, [task3Grace]),
+    ]);
+    const result = optimizer.findBestPlan(plans, fixture.options);
+    assert.equal(result.status, "OPTIMAL", `${fixture.name}: strict search must complete`);
+    assert.equal(result.plan[0].pick[0].lectureProvenance[0].instructors[0], "ada lovelace",
+      `${fixture.name}: strict mode must select the preferred instructor regardless of schedule cost`);
+    assert.equal(result.evaluation.missedCourseCount, 0,
+      `${fixture.name}: strict mode must not miss the active preference`);
+    assert.equal(result.evaluation.matchedCourseCount, 1);
+    assert.deepEqual(result.evaluation, optimizer.evaluatePlan(result.plan));
+    assert.deepEqual(result.objective, optimizer.objectiveKey(result.evaluation, fixture.options));
+
+    // Repeat without strict mode using the identical fixture: this reproduces
+    // the schedule-wins baseline, proving the flag alone caused the change.
+    const relaxedOptions = Object.assign({}, fixture.options, { strictInstructors: 0 });
+    const relaxed = optimizer.findBestPlan(plans, relaxedOptions);
+    assert.equal(relaxed.plan[0].pick[0].lectureProvenance[0].instructors[0], "grace hopper",
+      `${fixture.name}: disabling strict mode must restore the original schedule-first behavior`);
+  }
+});
+
+test("Task 3 strict mode: preferred instructor overrides the lunch tier", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  // The preferred lecture spans the entire lunch window; the alternative
+  // leaves a full free hour. Without strict mode, lunch (a dominant tier when
+  // enabled) selects the non-preferred section.
+  const plans = task3PreferencePlan("STRICT-lunch", [task3Ada], [
+    task3PreferenceOption("LEC-PREFERRED",
+      { day: 1, start: 11 * HOUR, end: 13 * HOUR }, [task3Ada]),
+    task3PreferenceOption("LEC-OTHER",
+      { day: 1, start: 8 * HOUR, end: 9 * HOUR }, [task3Grace]),
+  ]);
+  const lunchOptions = { campus: 0, lunch: 1, early: 0, late: 0 };
+
+  const relaxed = optimizer.findBestPlan(plans, lunchOptions);
+  assert.equal(relaxed.plan[0].pick[0].lectureProvenance[0].instructors[0], "grace hopper",
+    "lunch must outrank the preference when strict mode is off");
+  assert.equal(relaxed.evaluation.missedCourseCount, 1);
+
+  const strict = optimizer.findBestPlan(plans, Object.assign({}, lunchOptions, {
+    strictInstructors: 1,
+  }));
+  assert.equal(strict.status, "OPTIMAL");
+  assert.equal(strict.plan[0].pick[0].lectureProvenance[0].instructors[0], "ada lovelace",
+    "strict mode must select the preferred instructor even at the cost of the lunch gap");
+  assert.equal(strict.evaluation.missedCourseCount, 0);
+  assert.equal(strict.evaluation.lunchDeficitMs, HOUR,
+    "strict mode is expected to accept the lost lunch hour to keep the preference");
+});
+
+test("Task 3 strict mode: courses without an active preference are unaffected", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const sameTime = { day: 2, start: 9 * HOUR, end: 10 * HOUR };
+  const plans = task3PreferencePlan("STRICT-NO-PREF", [], [
+    task3PreferenceOption("LEC-ADA", sameTime, [task3Ada]),
+    task3PreferenceOption("LEC-GRACE", sameTime, [task3Grace]),
+  ]);
+  const strictNone = optimizer.findBestPlan(plans, Object.assign({}, task3None, {
+    strictInstructors: 1,
+  }));
+  const relaxedNone = optimizer.findBestPlan(plans, task3None);
+  assert.equal(strictNone.status, "OPTIMAL");
+  assert.equal(strictNone.evaluation.preferredCourseCount, 0);
+  assert.equal(strictNone.evaluation.matchedCourseCount, 0);
+  assert.equal(strictNone.evaluation.missedCourseCount, 0);
+  assert.equal(strictNone.signature, relaxedNone.signature,
+    "enabling strict mode must not change a course with no active preference");
+});
+
+test("Task 3 strict mode: an unsatisfiable preference produces the complete NO_SOLUTION contract", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  // Both of Ada's lecture choices clash with the only Grace-free slot removed
+  // below, so no candidate can keep the preference: strict mode must exhaust
+  // the course rather than silently falling back to a non-preferred section.
+  const plans = task3PreferencePlan("STRICT-IMPOSSIBLE", [task3Ada], [
+    task3PreferenceOption("LEC-GRACE-ONLY",
+      { day: 1, start: 9 * HOUR, end: 10 * HOUR }, [task3Grace]),
+  ]);
+  const strict = optimizer.findBestPlan(plans, Object.assign({}, task3None, {
+    strictInstructors: 1,
+  }));
+  assert.deepEqual({
+    plan: strict.plan,
+    status: strict.status,
+    complete: strict.complete,
+    optimal: strict.optimal,
+    evaluation: strict.evaluation,
+    objective: strict.objective,
+    score: strict.score,
+    signature: strict.signature,
+  }, {
+    plan: null,
+    status: "NO_SOLUTION",
+    complete: true,
+    optimal: true,
+    evaluation: null,
+    objective: null,
+    score: null,
+    signature: null,
+  }, "strict mode must preserve the existing complete no-solution contract when the preference cannot be kept");
+  assert.equal(strict.diagnostics.reason, "NO_FEASIBLE_CANDIDATE");
+  assert.equal(strict.diagnostics.courseCode, "STRICT-IMPOSSIBLE");
+
+  // The same fixture without strict mode must still return the existing
+  // schedule-optimal (non-preferred) plan rather than a no-solution result.
+  const relaxed = optimizer.findBestPlan(plans, task3None);
+  assert.equal(relaxed.status, "OPTIMAL");
+  assert.equal(relaxed.evaluation.missedCourseCount, 1);
+});
+
+test("Task 3 strict mode: multiple preferred courses must each keep their own instructor", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const coursePlansA = task3PreferencePlan("STRICT-MULTI-A", [task3Ada], [
+    task3PreferenceOption("LEC-A-PREFERRED", { day: 1, start: 9 * HOUR, end: 10 * HOUR }, [task3Ada]),
+    task3PreferenceOption("LEC-A-OTHER", { day: 1, start: 9 * HOUR, end: 10 * HOUR }, [task3Grace]),
+  ]);
+  const coursePlansB = task3PreferencePlan("STRICT-MULTI-B", [task3Grace], [
+    task3PreferenceOption("LEC-B-PREFERRED", { day: 2, start: 9 * HOUR, end: 10 * HOUR }, [task3Grace]),
+    task3PreferenceOption("LEC-B-OTHER", { day: 2, start: 9 * HOUR, end: 10 * HOUR }, [task3Ada]),
+  ]);
+  const plans = coursePlansA.concat(coursePlansB);
+  const result = optimizer.findBestPlan(plans, Object.assign({}, task3None, {
+    strictInstructors: 1,
+  }));
+  assert.equal(result.status, "OPTIMAL");
+  const byCode = new Map(result.plan.map(course => [course.code, course]));
+  assert.equal(
+    byCode.get("STRICT-MULTI-A").pick[0].lectureProvenance[0].instructors[0],
+    "ada lovelace",
+  );
+  assert.equal(
+    byCode.get("STRICT-MULTI-B").pick[0].lectureProvenance[0].instructors[0],
+    "grace hopper",
+  );
+  assert.equal(result.evaluation.missedCourseCount, 0);
+  assert.equal(result.evaluation.matchedCourseCount, 2);
+});
+
+test("Task 3 strict mode: repeated searches remain deterministic", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const plans = task3PreferencePlan("STRICT-DETERMINISM", [task3Ada], [
+    task3PreferenceOption("LEC-PREFERRED",
+      [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }, { day: 2, start: 8 * HOUR, end: 9 * HOUR }],
+      [task3Ada]),
+    task3PreferenceOption("LEC-OTHER",
+      [{ day: 1, start: 8 * HOUR, end: 9 * HOUR }], [task3Grace]),
+  ]);
+  const options = { campus: 1, lunch: 0, early: 0, late: 0, strictInstructors: 1 };
+  const first = optimizer.findBestPlan(plans, options);
+  const second = optimizer.findBestPlan(plans, options);
+  assert.equal(first.status, "OPTIMAL");
+  assert.equal(second.signature, first.signature,
+    "repeated strict searches must select the same stable plan");
+  assert.deepEqual(second.evaluation, first.evaluation);
+  assert.deepEqual(second.objective, first.objective);
+});
+
+// **Validates: the page checkbox wires strictInstructors into every seam that**
+// **already carries campus/lunch/early/late: selectedOptimizationOptions,**
+// **bestSoFarInputKey cache invalidation, and the worker/render boundary.**
+test("Task 3 strict mode: page checkbox reaches selectedOptimizationOptions, cache key, and render", () => {
+  const optimizer = sharedOptimizerIfPresent();
+  assert.ok(optimizer, "shared optimizer module must be available");
+  const preferenceCourse = preservationCourse("STRICT-PAGE", [
+    Object.assign(preservationSection("LEC-PREFERRED", "LEC", [
+      { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+    ]), { instructors: [{ firstName: "Ada", lastName: "Lovelace" }] }),
+    Object.assign(preservationSection("LEC-OTHER", "LEC", [
+      { day: 1, start: 8 * HOUR, end: 9 * HOUR },
+    ]), { instructors: [{ firstName: "Grace", lastName: "Hopper" }] }),
+  ]);
+  const page = makeInlinePageHarness().installDeterministicWorker();
+  page.installCourses([preferenceCourse]);
+  page.renderCourses();
+  const adaBox = task4InstructorBoxes(page).find(box => box.dataset.instructor === "ada lovelace");
+  assert.ok(adaBox, "the preference control must be rendered");
+  adaBox.checked = true;
+  page.elements.get("courseList").onchange({ target: adaBox });
+
+  const optionsOff = vm.runInContext("selectedOptimizationOptions()", page.context);
+  assert.equal(optionsOff.strictInstructors, 0,
+    "the strict checkbox must default to unchecked and report 0");
+
+  vm.runInContext(
+    "document.getElementById('optStrictInstructors').checked = true;",
+    page.context,
+  );
+  const optionsOn = vm.runInContext("selectedOptimizationOptions()", page.context);
+  assert.equal(optionsOn.strictInstructors, 1,
+    "checking the new checkbox must report strictInstructors: 1");
+
+  const plans = page.selectedPlans();
+  const keyOff = vm.runInContext(
+    `bestSoFarInputKey(selectedPlan(), ${JSON.stringify(optionsOff)})`,
+    page.context,
+  );
+  const keyOn = vm.runInContext(
+    `bestSoFarInputKey(selectedPlan(), ${JSON.stringify(optionsOn)})`,
+    page.context,
+  );
+  assert.notEqual(keyOn, keyOff,
+    "toggling strict mode must invalidate any cumulative cached result");
+
+  const displayed = preservationRunPageOptimize(page, optionsOn, [0.5]);
+  assert.equal(displayed.plan[0].pick.find(item => item.lec)
+    .lectureProvenance[0].instructors[0], "ada lovelace",
+    "the page must render the strictly preferred instructor once the checkbox is on");
+  assert.notEqual(displayed.timetable, "");
+
+  const directResult = optimizer.findBestPlan(plans, optionsOn);
+  assert.equal(directResult.evaluation.missedCourseCount, 0);
+});

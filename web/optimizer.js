@@ -1215,6 +1215,12 @@
         lunch: normalizeWeight(source.lunch, 0),
         early: normalizeWeight(source.early, 0),
         late: normalizeWeight(source.late, 0),
+        // Not a weighted tier: when enabled, a course with an active
+        // instructor preference may only produce candidates that do not miss
+        // that preference. This is a hard filter applied during candidate
+        // construction, so it leaves the existing lunch/combined/missed-count
+        // objective tiers and their pruning bounds completely unchanged.
+        strictInstructors: normalizeWeight(source.strictInstructors, 0),
       };
     }
 
@@ -1699,8 +1705,18 @@
             masks: new Map(),
           });
         }
-        const candidates = Array.from(unique.values())
+        let candidates = Array.from(unique.values())
           .sort((left, right) => compareStrings(left.signature, right.signature));
+        // "Make lecture instructors high priority" (strict mode): a course
+        // with an active preference may only produce candidates that keep
+        // it, so the generated timetable is guaranteed to use the preferred
+        // instructor rather than merely favoring one. This is a hard filter
+        // at construction time, not an objective term, so every other tier
+        // and pruning bound below is unaffected. If no candidate survives,
+        // the existing NO_FEASIBLE_CANDIDATE/NO_SOLUTION contract applies.
+        if (opts.strictInstructors && course.preferredInstructors.length > 0) {
+          candidates = candidates.filter(candidate => candidate.preferenceMiss === 0);
+        }
         candidateSets.push({
           course,
           candidates,
